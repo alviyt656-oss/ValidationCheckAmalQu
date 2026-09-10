@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distribusi Wakaf — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #FAF8F3;
+    --panel: #FFFFFF;
+    --ink: #1B2420;
+    --ink-soft: #5B655D;
+    --border: #DDE3D8;
+    --green: #2E5E4E;
+    --green-soft: #E7EFE9;
+    --gold: #B08D3E;
+    --gold-soft: #F4ECD8;
+    --danger: #A6432F;
+    --danger-soft: #F6E7E2;
+    --radius: 4px;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; line-height:1.5;
+  }
+  h1,h2,h3{ font-family:'Source Serif 4', serif; font-weight:600; margin:0; }
+  .app{ display:flex; min-height:100vh; }
+
+  /* Sidebar */
+  .sidebar{
+    width:220px; flex-shrink:0; background:var(--panel);
+    border-right:1px solid var(--border); padding:28px 0;
+    display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .brand{ padding:0 24px 24px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .brand h1{ font-size:19px; color:var(--green); }
+  .brand p{ margin:4px 0 0; font-size:12px; color:var(--ink-soft); }
+  nav{ display:flex; flex-direction:column; gap:2px; padding:0 12px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-radius:var(--radius); cursor:pointer; color:var(--ink-soft);
+    font-size:14px; border:1px solid transparent;
+  }
+  .nav-item:hover{ background:var(--green-soft); color:var(--green); }
+  .nav-item.active{ background:var(--green-soft); color:var(--green); border-color:var(--border); font-weight:500; }
+  .nav-icon{ width:16px; text-align:center; }
+  .sidebar-foot{ padding:0 24px; font-size:11px; color:var(--ink-soft); }
+
+  /* Main */
+  main{ flex:1; padding:32px 40px; max-width:1200px; }
+  .topbar{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+  .topbar h2{ font-size:24px; }
+  .sync-controls{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--ink-soft); }
+  button{
+    font-family:inherit; font-size:13px; cursor:pointer; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--panel); color:var(--ink); padding:8px 14px;
+  }
+  button:hover{ border-color:var(--green); color:var(--green); }
+  button.primary{ background:var(--green); color:#fff; border-color:var(--green); }
+  button.primary:hover{ background:#254C3F; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  /* Cards */
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:28px; }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+  .card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
+  .card .value{ font-family:'Source Serif 4', serif; font-size:28px; color:var(--green); }
+  .card.gold .value{ color:var(--gold); }
+
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px; }
+  .panel h3{ font-size:16px; margin-bottom:16px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th, td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th{ color:var(--ink-soft); font-weight:500; font-size:12px; }
+  tbody tr:hover{ background:var(--green-soft); }
+  .table-scroll{ overflow-x:auto; }
+
+  .status-pill{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; }
+  .status-pill.delivered{ background:var(--green-soft); color:var(--green); }
+  .status-pill.pending{ background:var(--gold-soft); color:var(--gold); }
+
+  .field-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; align-items:end; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12px; color:var(--ink-soft); }
+  select, input[type=date], input[type=file]{
+    font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border);
+    border-radius:var(--radius); background:#fff; color:var(--ink);
+  }
+
+  .steps{ display:flex; flex-direction:column; gap:4px; margin-bottom:20px; }
+  .step{ display:flex; gap:10px; align-items:baseline; font-size:13px; color:var(--ink-soft); }
+  .step .num{ font-family:'Source Serif 4', serif; color:var(--gold); font-size:15px; }
+
+  .result-box{ border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--bg); }
+  .result-box.ok{ border-color: var(--green); background: var(--green-soft); }
+  .result-box.err{ border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+  .muted{ color:var(--ink-soft); font-size:12px; }
+
+  .empty{ padding:40px 0; text-align:center; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div>
+      <div class="brand">
+        <h1>Wakaf TikTok</h1>
+        <p>Dashboard distribusi</p>
+      </div>
+      <nav>
+        <div class="nav-item active" data-view="recap"><span class="nav-icon">&#9673;</span> Rekap</div>
+        <div class="nav-item" data-view="daily"><span class="nav-icon">&#9636;</span> Per Hari</div>
+        <div class="nav-item" data-view="upload"><span class="nav-icon">&#8593;</span> Validasi Upload</div>
+      </nav>
+    </div>
+    <div class="sidebar-foot">Sync dari Google Sheets.<br>Auto-refresh tiap 30 detik.</div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <h2 id="view-title">Rekapitulasi</h2>
+      <div class="sync-controls">
+        <span id="last-sync">Belum sync</span>
+        <button id="refresh-btn">Refresh</button>
+      </div>
+    </div>
+
+    <!-- ============ VIEW: REKAP ============ -->
+    <section class="view active" id="view-recap">
+      <div id="recap-cards" class="cards"></div>
+      <div class="panel">
+        <h3>Distribusi per bulan</h3>
+        <canvas id="recap-chart" height="90"></canvas>
+      </div>
+      <div id="recap-tables"></div>
+    </section>
+
+    <!-- ============ VIEW: PER HARI ============ -->
+    <section class="view" id="view-daily">
+      <div class="panel">
+        <div class="field-row">
+          <div class="field">
+            <label for="daily-tab">Tab kategori</label>
+            <select id="daily-tab"></select>
+          </div>
+          <div class="field">
+            <label for="daily-date">Tanggal</label>
+            <input type="date" id="daily-date">
+          </div>
+          <button class="primary" id="daily-load">Tampilkan</button>
+        </div>
+        <div class="table-scroll">
+          <table id="daily-table">
+            <thead>
+              <tr>
+                <th>RESI</th><th>ID Pesanan</th><th>Alamat</th><th>Jumlah</th>
+                <th>Status</th><th>Nama Sertifikat</th><th>Peruntukan</th><th>Kode Penyaluran</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="empty" id="daily-empty">Pilih tab dan tanggal, lalu klik Tampilkan.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: VALIDASI UPLOAD ============ -->
+    <section class="view" id="view-upload">
+      <div class="panel">
+        <div class="steps">
+          <div class="step"><span class="num">1</span> Pilih tanggal dan tab kategori (Quran / Tahsin)</div>
+          <div class="step"><span class="num">2</span> Upload file validasi (xls/xlsx/csv, kolom: ID Pesanan, Status)</div>
+          <div class="step"><span class="num">3</span> Sistem mencocokkan ID Pesanan dan memperbarui status otomatis</div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="upload-tab">Tab kategori</label>
+            <select id="upload-tab"></select>
+          </div>
+          <div class="field">
+            <label for="upload-date">Tanggal</label>
+            <input type="date" id="upload-date">
+          </div>
+          <div class="field">
+            <label for="upload-file">File validasi</label>
+            <input type="file" id="upload-file" accept=".xlsx,.xls,.csv">
+          </div>
+          <button class="primary" id="upload-run">Proses</button>
+        </div>
+        <div id="upload-result"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   KONFIGURASI — ganti dengan URL deployment Apps Script kamu
+   ============================================================ */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-BzCn3C1ZjGrIOG0JuJCM-3T4DVhzXKl4hBs39P670Z8pMAgyPQhsvNF0L-h8m8oV/exec';
+const AUTO_REFRESH_MS = 30000;
+
+let monthlyTabs = [];
+let chartInstance = null;
+
+function api(action, params) {
+  const url = new URL(SCRIPT_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+  return fetch(url).then(r => r.json());
+}
+
+function apiPost(body) {
+  return fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+}
+
+/* ---------- Navigasi ---------- */
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    item.classList.add('active');
+    const view = item.dataset.view;
+    document.getElementById('view-' + view).classList.add('active');
+    document.getElementById('view-title').textContent =
+      view === 'recap' ? 'Rekapitulasi' : view === 'daily' ? 'Data Per Hari' : 'Validasi Upload';
+  });
+});
+
+/* ---------- Rekap ---------- */
+function renderRecap(data) {
+  const cardsEl = document.getElementById('recap-cards');
+  const tablesEl = document.getElementById('recap-tables');
+  cardsEl.innerHTML = '';
+  tablesEl.innerHTML = '';
+
+  const chartLabels = [];
+  const chartDatasets = {};
+
+  data.blocks.forEach(block => {
+    block.categories.forEach((catName, idx) => {
+      const t = block.totals[catName];
+      const card = document.createElement('div');
+      card.className = 'card' + (idx % 2 === 1 ? ' gold' : '');
+      card.innerHTML = `<div class="label">${block.monthLabel} — ${catName}</div>
+        <div class="value">${t.Distribusi.toLocaleString('id-ID')}</div>
+        <div class="muted">Distribusi dari ${t['Total PCS'].toLocaleString('id-ID')} PCS · ${t.Cancel} cancel</div>`;
+      cardsEl.appendChild(card);
+
+      if (!chartDatasets[catName]) chartDatasets[catName] = [];
+      chartDatasets[catName].push(t.Distribusi);
+    });
+    chartLabels.push(block.monthLabel);
+
+    // Tabel harian ringkas per blok
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    let rowsHtml = block.rows.map(r => {
+      const cells = block.categories.map(c =>
+        `<td>${(r[c]['Distribusi']||0)}</td><td>${(r[c]['Cancel']||0)}</td>`).join('');
+      const tgl = r.tanggal instanceof Date ? r.tanggal.toLocaleDateString('id-ID') : r.tanggal;
+      return `<tr><td>${tgl}</td>${cells}</tr>`;
+    }).join('');
+    const headCells = block.categories.map(c => `<th>${c} — Distribusi</th><th>${c} — Cancel</th>`).join('');
+    panel.innerHTML = `<h3>${block.monthLabel}</h3>
+      <div class="table-scroll"><table>
+      <thead><tr><th>Tanggal</th>${headCells}</tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="99" class="muted">Belum ada data.</td></tr>'}</tbody>
+      </table></div>`;
+    tablesEl.appendChild(panel);
+  });
+
+  const ctx = document.getElementById('recap-chart');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: Object.entries(chartDatasets).map(([name, values], i) => ({
+        label: name,
+        data: values,
+        backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E'
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans' } } } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+function loadRecap() {
+  return api('recap').then(data => {
+    if (data.error) throw new Error(data.message);
+    renderRecap(data);
+  });
+}
+
+/* ---------- Per Hari ---------- */
+function populateTabSelects() {
+  return api('tabs').then(data => {
+    monthlyTabs = data.tabs || [];
+    ['daily-tab', 'upload-tab'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = monthlyTabs.map(t => `<option value="${t}">${t}</option>`).join('');
+    });
+  });
+}
+
+function statusPill(status) {
+  const isDelivered = /sampai|terkirim|delivered/i.test(status || '');
+  const cls = isDelivered ? 'delivered' : 'pending';
+  const label = status || 'Belum diproses';
+  return `<span class="status-pill ${cls}">${label}</span>`;
+}
+
+function loadDaily() {
+  const tab = document.getElementById('daily-tab').value;
+  const date = document.getElementById('daily-date').value;
+  if (!tab || !date) return;
+
+  return api('daily', { tab, date }).then(data => {
+    if (data.error) throw new Error(data.message);
+    const tbody = document.querySelector('#daily-table tbody');
+    const emptyEl = document.getElementById('daily-empty');
+    tbody.innerHTML = data.records.map(r => `
+      <tr>
+        <td>${r.resi || ''}</td>
+        <td>${r.idPesanan || ''}</td>
+        <td>${r.alamat || ''}</td>
+        <td>${r.jumlah || ''}</td>
+        <td>${statusPill(r.status)}</td>
+        <td>${r.namaSertifikat || ''}</td>
+        <td>${r.namaPeruntukan || ''}</td>
+        <td>${r.kodePenyaluran || ''}</td>
+      </tr>`).join('');
+    emptyEl.style.display = data.records.length ? 'none' : 'block';
+    emptyEl.textContent = data.records.length ? '' : 'Tidak ada data untuk tanggal ini.';
+  });
+}
+
+document.getElementById('daily-load').addEventListener('click', () => loadDaily().catch(showTopError));
+
+/* ---------- Validasi Upload ---------- */
+function parseUploadedFile(file) {
+  return file.arrayBuffer().then(buf => {
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    // Cari nama kolom ID Pesanan & Status secara fleksibel
+    return rows.map(row => {
+      const keys = Object.keys(row);
+      const idKey = keys.find(k => /id.*pesanan/i.test(k)) || keys[0];
+      const statusKey = keys.find(k => /status/i.test(k)) || keys[1];
+      return { idPesanan: String(row[idKey] || '').trim(), status: String(row[statusKey] || '').trim() };
+    }).filter(r => r.idPesanan);
+  });
+}
+
+document.getElementById('upload-run').addEventListener('click', () => {
+  const tab = document.getElementById('upload-tab').value;
+  const date = document.getElementById('upload-date').value;
+  const fileInput = document.getElementById('upload-file');
+  const resultEl = document.getElementById('upload-result');
+  const btn = document.getElementById('upload-run');
+
+  if (!tab || !date || !fileInput.files.length) {
+    resultEl.innerHTML = `<div class="result-box err">Lengkapi tab, tanggal, dan file terlebih dahulu.</div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<div class="muted">Memproses…</div>`;
+
+  parseUploadedFile(fileInput.files[0])
+    .then(records => apiPost({ action: 'validate', tab, date, records }))
+    .then(res => {
+      if (res.error) throw new Error(res.message);
+      resultEl.innerHTML = `<div class="result-box ok">
+        <strong>${res.matched}</strong> pesanan berhasil diperbarui jadi "Paket Sudah sampai".<br>
+        <span class="muted">Total dibaca dari file: ${res.totalUploaded}
+        ${res.notFound.length ? ' · Tidak ditemukan: ' + res.notFound.length : ''}
+        ${res.skippedNotDelivered.length ? ' · Dilewati (bukan status terkirim): ' + res.skippedNotDelivered.length : ''}</span>
+        ${res.notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${res.notFound.join(', ')}</div>` : ''}
+      </div>`;
+    })
+    .catch(err => {
+      resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`;
+    })
+    .finally(() => { btn.disabled = false; });
+});
+
+/* ---------- Refresh & error handling ---------- */
+function showTopError(err) {
+  document.getElementById('last-sync').textContent = 'Gagal sync: ' + err.message;
+}
+
+function refreshAll() {
+  document.getElementById('last-sync').textContent = 'Menyinkronkan…';
+  Promise.all([loadRecap(), document.getElementById('daily-date').value ? loadDaily() : Promise.resolve()])
+    .then(() => {
+      document.getElementById('last-sync').textContent =
+        'Sync terakhir: ' + new Date().toLocaleTimeString('id-ID');
+    })
+    .catch(showTopError);
+}
+
+document.getElementById('refresh-btn').addEventListener('click', refreshAll);
+
+/* ---------- Init ---------- */
+populateTabSelects()
+  .then(refreshAll)
+  .catch(showTopError);
+
+setInterval(refreshAll, AUTO_REFRESH_MS);
+</script>
+
+</body>
+</html>
