@@ -8,109 +8,136 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
-    --bg: #FAF8F3;
+    --bg: #F6F3EC;
     --panel: #FFFFFF;
-    --ink: #1B2420;
-    --ink-soft: #5B655D;
-    --border: #DDE3D8;
-    --green: #2E5E4E;
-    --green-soft: #E7EFE9;
-    --gold: #B08D3E;
-    --gold-soft: #F4ECD8;
-    --danger: #A6432F;
-    --danger-soft: #F6E7E2;
-    --radius: 4px;
+    --panel-tint: #FBFAF5;
+    --ink: #1C2620;
+    --ink-soft: #667066;
+    --ink-faint: #96A092;
+    --border: #E4E2D6;
+    --border-strong: #CDD2C1;
+    --green: #2F5D46;
+    --green-dark: #203E30;
+    --green-soft: #E4EFE7;
+    --gold: #A9822F;
+    --gold-dark: #8A6A21;
+    --gold-soft: #F3E9D2;
+    --danger: #A34A31;
+    --danger-soft: #F5E1D8;
+    --teal: #3E6E72;
+    --radius: 6px;
+    --shadow-sm: 0 1px 2px rgba(28,38,32,.05);
+    --shadow-md: 0 4px 16px rgba(28,38,32,.06);
   }
   *{ box-sizing: border-box; }
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:'IBM Plex Sans', sans-serif; font-size:14px; line-height:1.5;
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; line-height:1.55;
   }
-  h1,h2,h3{ font-family:'Source Serif 4', serif; font-weight:600; margin:0; }
+  h1,h2,h3{ font-family:'Source Serif 4', serif; font-weight:600; margin:0; letter-spacing:-.01em; }
   .app{ display:flex; min-height:100vh; }
 
   /* Sidebar */
   .sidebar{
-    width:220px; flex-shrink:0; background:var(--panel);
+    width:224px; flex-shrink:0; background:var(--panel);
     border-right:1px solid var(--border); padding:28px 0;
     display:flex; flex-direction:column; justify-content:space-between;
   }
-  .brand{ padding:0 24px 24px; border-bottom:1px solid var(--border); margin-bottom:16px; }
-  .brand h1{ font-size:19px; color:var(--green); }
-  .brand p{ margin:4px 0 0; font-size:12px; color:var(--ink-soft); }
-  nav{ display:flex; flex-direction:column; gap:2px; padding:0 12px; }
+  .brand{ padding:0 24px 22px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+  .brand h1{ font-size:19px; color:var(--green-dark); }
+  .brand p{ margin:5px 0 0; font-size:12px; color:var(--ink-soft); letter-spacing:.02em; }
+  nav{ display:flex; flex-direction:column; gap:3px; padding:0 12px; }
   .nav-item{
     display:flex; align-items:center; gap:10px; padding:10px 12px;
     border-radius:var(--radius); cursor:pointer; color:var(--ink-soft);
-    font-size:14px; border:1px solid transparent;
+    font-size:14px; border-left:3px solid transparent; transition:background .12s ease, color .12s ease;
   }
-  .nav-item:hover{ background:var(--green-soft); color:var(--green); }
-  .nav-item.active{ background:var(--green-soft); color:var(--green); border-color:var(--border); font-weight:500; }
-  .nav-icon{ width:16px; text-align:center; }
-  .sidebar-foot{ padding:0 24px; font-size:11px; color:var(--ink-soft); }
+  .nav-item:hover{ background:var(--green-soft); color:var(--green-dark); }
+  .nav-item.active{
+    background:var(--green-soft); color:var(--green-dark); font-weight:600;
+    border-left-color:var(--gold);
+  }
+  .nav-icon{ width:16px; text-align:center; opacity:.85; }
+  .sidebar-foot{ padding:0 24px; font-size:11px; color:var(--ink-faint); line-height:1.7; }
 
   /* Main */
-  main{ flex:1; padding:32px 40px; max-width:1200px; }
-  .topbar{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-  .topbar h2{ font-size:24px; }
+  main{ flex:1; padding:32px 40px 56px; max-width:1240px; }
+  .topbar{
+    display:flex; align-items:baseline; justify-content:space-between; margin-bottom:26px;
+    flex-wrap:wrap; gap:12px; padding-bottom:18px; border-bottom:1px solid var(--border);
+  }
+  .topbar h2{ font-size:25px; color:var(--green-dark); }
   .sync-controls{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--ink-soft); }
   button{
-    font-family:inherit; font-size:13px; cursor:pointer; border-radius:var(--radius);
-    border:1px solid var(--border); background:var(--panel); color:var(--ink); padding:8px 14px;
+    font-family:inherit; font-size:13px; font-weight:500; cursor:pointer; border-radius:var(--radius);
+    border:1px solid var(--border-strong); background:var(--panel); color:var(--ink); padding:8px 14px;
+    transition:border-color .12s ease, color .12s ease, background .12s ease;
   }
-  button:hover{ border-color:var(--green); color:var(--green); }
-  button.primary{ background:var(--green); color:#fff; border-color:var(--green); }
-  button.primary:hover{ background:#254C3F; }
+  button:hover{ border-color:var(--green); color:var(--green-dark); }
+  button.primary{ background:var(--green); color:#fff; border-color:var(--green); box-shadow:var(--shadow-sm); }
+  button.primary:hover{ background:var(--green-dark); border-color:var(--green-dark); }
   button:disabled{ opacity:.5; cursor:not-allowed; }
 
   .view{ display:none; }
   .view.active{ display:block; }
 
   /* Cards */
-  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:28px; }
-  .card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
-  .card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
-  .card .value{ font-family:'Source Serif 4', serif; font-size:28px; color:var(--green); }
-  .card.gold .value{ color:var(--gold); }
-  .card .stat-row{ display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--ink-soft); }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-bottom:28px; }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-top:3px solid var(--green);
+    border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow-sm);
+  }
+  .card.gold{ border-top-color:var(--gold); }
+  .card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; letter-spacing:.01em; }
+  .card .value{ font-family:'Source Serif 4', serif; font-size:30px; color:var(--green-dark); }
+  .card.gold .value{ color:var(--gold-dark); }
+  .card .stat-row{ display:flex; gap:16px; margin-top:12px; font-size:12px; color:var(--ink-soft); }
   .card .stat-row b{ color:var(--ink); font-weight:600; }
-  .card .balance-line{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; }
+  .card .balance-line{ margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:12px; font-weight:500; }
   .card .balance-line.ok{ color:var(--green); }
   .card .balance-line.warn{ color:var(--danger); }
 
-  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px; }
-  .panel h3{ font-size:16px; margin-bottom:16px; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px 26px; margin-bottom:24px; box-shadow:var(--shadow-sm);
+  }
+  .panel h3{ font-size:16px; margin-bottom:16px; color:var(--green-dark); }
 
   table{ width:100%; border-collapse:collapse; font-size:13px; }
-  th, td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
-  th{ color:var(--ink-soft); font-weight:500; font-size:12px; }
+  th, td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th{ color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background:var(--panel-tint); }
   tbody tr:hover{ background:var(--green-soft); }
-  .table-scroll{ overflow-x:auto; }
+  .table-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); }
+  .table-scroll table{ border:none; }
 
-  .status-pill{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; }
-  .status-pill.delivered{ background:var(--green-soft); color:var(--green); }
-  .status-pill.pending{ background:var(--gold-soft); color:var(--gold); }
+  .status-pill{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:500; }
+  .status-pill.delivered{ background:var(--green-soft); color:var(--green-dark); }
+  .status-pill.pending{ background:var(--gold-soft); color:var(--gold-dark); }
+  .status-pill.cancelled{ background:var(--danger-soft); color:var(--danger); }
 
   .field-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; align-items:end; }
   .field{ display:flex; flex-direction:column; gap:6px; }
-  .field label{ font-size:12px; color:var(--ink-soft); }
-  select, input[type=date], input[type=file]{
-    font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border);
-    border-radius:var(--radius); background:#fff; color:var(--ink);
+  .field label{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+  select, input[type=date], input[type=file], input[type=text]{
+    font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border-strong);
+    border-radius:var(--radius); background:#fff; color:var(--ink); transition:border-color .12s ease, box-shadow .12s ease;
   }
+  select:focus, input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(62,110,114,.15); }
 
-  .steps{ display:flex; flex-direction:column; gap:4px; margin-bottom:20px; }
+  .steps{ display:flex; flex-direction:column; gap:6px; margin-bottom:22px; }
   .step{ display:flex; gap:10px; align-items:baseline; font-size:13px; color:var(--ink-soft); }
-  .step .num{ font-family:'Source Serif 4', serif; color:var(--gold); font-size:15px; }
+  .step .num{ font-family:'Source Serif 4', serif; color:var(--gold-dark); font-size:15px; }
 
-  .result-box{ border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--bg); }
-  .result-box.ok{ border-color: var(--green); background: var(--green-soft); }
-  .result-box.err{ border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+  .result-box{ border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-top:16px; background:var(--panel-tint); }
+  .result-box.ok{ border-color:var(--green); background:var(--green-soft); }
+  .result-box.err{ border-color:var(--danger); background:var(--danger-soft); color:var(--danger); }
   .muted{ color:var(--ink-soft); font-size:12px; }
 
-  .empty{ padding:40px 0; text-align:center; color:var(--ink-soft); }
+  .empty{ padding:40px 0; text-align:center; color:var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -140,7 +167,12 @@
       <h2 id="view-title">Rekapitulasi</h2>
       <div class="sync-controls">
         <span id="last-sync">Belum sync</span>
-        <button id="export-csv-btn">Export CSV</button>
+        <select id="export-format" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:13px;">
+          <option value="csv">CSV</option>
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="pdf">PDF</option>
+        </select>
+        <button id="export-btn">Export</button>
         <button id="refresh-btn">Refresh</button>
       </div>
     </div>
@@ -299,7 +331,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent =
       view === 'recap' ? 'Rekapitulasi' : view === 'daily' ? 'Data Per Hari' : 'Validasi Upload';
-    document.getElementById('export-csv-btn').style.display = view === 'recap' ? 'inline-block' : 'none';
+    document.getElementById('export-btn').style.display = view === 'recap' ? 'inline-block' : 'none';
+    document.getElementById('export-format').style.display = view === 'recap' ? 'inline-block' : 'none';
   });
 });
 
@@ -401,8 +434,8 @@ function renderRecapChart() {
       const row = filtered.find(r => toISODate(r.date) === dk && r.category === catName);
       return row ? (Number(row.values[metric]) || 0) : 0;
     }),
-    borderColor: i === 0 ? '#2E5E4E' : '#B08D3E',
-    backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+    borderColor: i === 0 ? '#2F5D46' : '#A9822F',
+    backgroundColor: i === 0 ? '#2F5D46' : '#A9822F',
     tension: 0.25,
     fill: false
   }));
@@ -501,8 +534,8 @@ function renderCumulativeChart() {
     return {
       label: catName,
       data,
-      borderColor: i === 0 ? '#2E5E4E' : '#B08D3E',
-      backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+      borderColor: i === 0 ? '#2F5D46' : '#A9822F',
+      backgroundColor: i === 0 ? '#2F5D46' : '#A9822F',
       tension: 0.2,
       fill: false
     };
@@ -534,7 +567,7 @@ function renderCompareChart() {
   const datasets = categories.map((catName, i) => ({
     label: catName,
     data: lastRecapData.blocks.map(b => Number((b.totals[catName] || {})['Distribusi']) || 0),
-    backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E'
+    backgroundColor: i === 0 ? '#2F5D46' : '#A9822F'
   }));
 
   const ctx = document.getElementById('compare-chart');
@@ -550,32 +583,67 @@ function renderCompareChart() {
   });
 }
 
-/* ---------- Export CSV ---------- */
-document.getElementById('export-csv-btn').addEventListener('click', () => {
-  const filtered = getFilteredRows();
+/* ---------- Export (CSV / XLSX / PDF) ---------- */
+function buildExportRows() {
   const header = ['Tanggal', 'Kategori', 'Total PCS', 'Terkirim', 'Cancel', 'Tidak Diketahui'];
-  const lines = [header.join(',')];
+  const filtered = getFilteredRows().sort((a, b) => a.date - b.date);
+  const body = filtered.map(row => [
+    toISODate(row.date),
+    row.category,
+    Number(row.values['Total PCS']) || 0,
+    Number(row.values['Distribusi']) || 0,
+    Number(row.values['Cancel']) || 0,
+    Number(row.values['Expedisi']) || 0
+  ]);
+  return { header, body };
+}
 
-  filtered
-    .sort((a, b) => a.date - b.date)
-    .forEach(row => {
-      lines.push([
-        toISODate(row.date),
-        row.category,
-        row.values['Total PCS'] || 0,
-        row.values['Distribusi'] || 0,
-        row.values['Cancel'] || 0,
-        row.values['Expedisi'] || 0
-      ].join(','));
-    });
+function exportFilename(ext) {
+  const from = document.getElementById('chart-from').value;
+  const to = document.getElementById('chart-to').value;
+  return `rekap-wakaf-${from}_${to}.${ext}`;
+}
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `rekap-wakaf-${document.getElementById('chart-from').value}_${document.getElementById('chart-to').value}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function exportAsCSV() {
+  const { header, body } = buildExportRows();
+  const lines = [header.join(','), ...body.map(r => r.join(','))];
+  downloadBlob(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' }), exportFilename('csv'));
+}
+
+function exportAsXLSX() {
+  const { header, body } = buildExportRows();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+  XLSX.writeFile(wb, exportFilename('xlsx'));
+}
+
+function exportAsPDF() {
+  const { header, body } = buildExportRows();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFontSize(14);
+  doc.text('Rekap Distribusi Wakaf TikTok', 14, 16);
+  doc.setFontSize(10);
+  doc.text(`Rentang: ${document.getElementById('chart-from').value} s.d. ${document.getElementById('chart-to').value}`, 14, 22);
+  doc.autoTable({ head: [header], body: body, startY: 28, styles: { fontSize: 8 } });
+  doc.save(exportFilename('pdf'));
+}
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const format = document.getElementById('export-format').value;
+  if (format === 'csv') exportAsCSV();
+  else if (format === 'xlsx') exportAsXLSX();
+  else if (format === 'pdf') exportAsPDF();
 });
 
 let pieChartInstance = null;
@@ -620,7 +688,7 @@ function renderStatusPie() {
       labels: ['Terkirim', 'Cancel', 'Tidak Diketahui'],
       datasets: [{
         data: [terkirim, cancel, tidakDiketahui],
-        backgroundColor: ['#2E5E4E', '#A6432F', '#B08D3E']
+        backgroundColor: ['#2F5D46', '#A34A31', '#A9822F']
       }]
     },
     options: {
@@ -660,8 +728,10 @@ function populateTabSelects() {
 }
 
 function statusPill(status) {
-  const isDelivered = /sampai|terkirim|delivered/i.test(status || '');
-  const cls = isDelivered ? 'delivered' : 'pending';
+  const s = String(status || '');
+  const isDelivered = /sampai|terkirim|delivered/i.test(s);
+  const isCancelled = /cancel|batal/i.test(s);
+  const cls = isCancelled ? 'cancelled' : (isDelivered ? 'delivered' : 'pending');
   const label = status || 'Belum diproses';
   return `<span class="status-pill ${cls}">${label}</span>`;
 }
