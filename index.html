@@ -74,6 +74,11 @@
   .card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
   .card .value{ font-family:'Source Serif 4', serif; font-size:28px; color:var(--green); }
   .card.gold .value{ color:var(--gold); }
+  .card .stat-row{ display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--ink-soft); }
+  .card .stat-row b{ color:var(--ink); font-weight:600; }
+  .card .balance-line{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; }
+  .card .balance-line.ok{ color:var(--green); }
+  .card .balance-line.warn{ color:var(--danger); }
 
   .panel{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:24px; }
   .panel h3{ font-size:16px; margin-bottom:16px; }
@@ -250,11 +255,25 @@ function renderRecap(data) {
   data.blocks.forEach(block => {
     block.categories.forEach((catName, idx) => {
       const t = block.totals[catName];
+      const totalPcs = Number(t['Total PCS']) || 0;
+      const distribusi = Number(t.Distribusi) || 0;
+      const cancel = Number(t.Cancel) || 0;
+      const tidakDiketahui = Number(t.Expedisi) || 0;
+      const selisih = totalPcs - distribusi - cancel - tidakDiketahui;
+      const balanced = selisih === 0;
+
       const card = document.createElement('div');
       card.className = 'card' + (idx % 2 === 1 ? ' gold' : '');
       card.innerHTML = `<div class="label">${block.monthLabel} — ${catName}</div>
-        <div class="value">${t.Distribusi.toLocaleString('id-ID')}</div>
-        <div class="muted">Distribusi dari ${t['Total PCS'].toLocaleString('id-ID')} PCS · ${t.Cancel} cancel</div>`;
+        <div class="value">${distribusi.toLocaleString('id-ID')}</div>
+        <div class="muted">Terkirim dari ${totalPcs.toLocaleString('id-ID')} PCS</div>
+        <div class="stat-row">
+          <span>Cancel: <b>${cancel.toLocaleString('id-ID')}</b></span>
+          <span>Tidak diketahui: <b>${tidakDiketahui.toLocaleString('id-ID')}</b></span>
+        </div>
+        <div class="balance-line ${balanced ? 'ok' : 'warn'}">
+          ${balanced ? '✓ Cek balance sesuai' : '⚠ Selisih ' + selisih.toLocaleString('id-ID') + ' (data belum sinkron)'}
+        </div>`;
       cardsEl.appendChild(card);
 
       if (!chartDatasets[catName]) chartDatasets[catName] = [];
@@ -267,11 +286,11 @@ function renderRecap(data) {
     panel.className = 'panel';
     let rowsHtml = block.rows.map(r => {
       const cells = block.categories.map(c =>
-        `<td>${(r[c]['Distribusi']||0)}</td><td>${(r[c]['Cancel']||0)}</td>`).join('');
+        `<td>${(r[c]['Total PCS']||0)}</td><td>${(r[c]['Distribusi']||0)}</td><td>${(r[c]['Cancel']||0)}</td><td>${(r[c]['Expedisi']||0)}</td>`).join('');
       const tgl = r.tanggal instanceof Date ? r.tanggal.toLocaleDateString('id-ID') : r.tanggal;
       return `<tr><td>${tgl}</td>${cells}</tr>`;
     }).join('');
-    const headCells = block.categories.map(c => `<th>${c} — Distribusi</th><th>${c} — Cancel</th>`).join('');
+    const headCells = block.categories.map(c => `<th>${c} — Total</th><th>${c} — Terkirim</th><th>${c} — Cancel</th><th>${c} — Tidak Diketahui</th>`).join('');
     panel.innerHTML = `<h3>${block.monthLabel}</h3>
       <div class="table-scroll"><table>
       <thead><tr><th>Tanggal</th>${headCells}</tr></thead>
@@ -358,7 +377,9 @@ function parseUploadedFile(file) {
   return file.arrayBuffer().then(buf => {
     const wb = XLSX.read(buf, { type: 'array' });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    // raw:false -> ambil teks yang tampil di sel (menghindari angka ID Pesanan
+    // yang sangat panjang kehilangan presisi kalau dibaca sebagai number)
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
     // Cari nama kolom ID Pesanan & Status secara fleksibel
     return rows.map(row => {
       const keys = Object.keys(row);
@@ -388,16 +409,12 @@ document.getElementById('upload-run').addEventListener('click', () => {
     .then(records => apiPost({ action: 'validate', tab, date, records }))
     .then(res => {
       if (res.error) throw new Error(res.message);
-      const byStatusText = Object.entries(res.byStatus || {})
-        .map(([status, count]) => `${count}× "${status}"`)
-        .join(', ') || '-';
       resultEl.innerHTML = `<div class="result-box ok">
-        <strong>${res.matched}</strong> pesanan berhasil diperbarui (${byStatusText}).<br>
+        <strong>${res.matched}</strong> pesanan berhasil diperbarui jadi "Paket Sudah sampai".<br>
         <span class="muted">Total dibaca dari file: ${res.totalUploaded}
         ${res.notFound.length ? ' · Tidak ditemukan: ' + res.notFound.length : ''}
-        ${res.unknownStatus.length ? ' · Status tidak dikenali: ' + res.unknownStatus.length : ''}</span>
+        ${res.skippedNotDelivered.length ? ' · Dilewati (bukan status terkirim): ' + res.skippedNotDelivered.length : ''}</span>
         ${res.notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${res.notFound.join(', ')}</div>` : ''}
-        ${res.unknownStatus.length ? `<div class="muted" style="margin-top:8px;">Status tidak dikenali: ${res.unknownStatus.map(u => u.idPesanan + ' ("' + u.status + '")').join(', ')}</div>` : ''}
       </div>`;
     })
     .catch(err => {
