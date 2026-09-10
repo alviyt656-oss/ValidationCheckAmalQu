@@ -164,7 +164,7 @@
             <thead>
               <tr>
                 <th>RESI</th><th>ID Pesanan</th><th>Alamat</th><th>Jumlah</th>
-                <th>Status</th><th>Nama Sertifikat</th><th>Peruntukan</th><th>Kode Penyaluran</th>
+                <th>Status</th><th>Validasi Data</th><th>Nama Sertifikat</th><th>Peruntukan</th><th>Kode Penyaluran</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -207,7 +207,7 @@
 /* ============================================================
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-BzCn3C1ZjGrIOG0JuJCM-3T4DVhzXKl4hBs39P670Z8pMAgyPQhsvNF0L-h8m8oV/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwoUFG6vz7EXOlmBcaxT8eDltwzl8gmp6Fzxcv4nk9GlG2MBBbfNQ6DLtM2VW__Iwv7/exec';
 const AUTO_REFRESH_MS = 30000;
 
 let monthlyTabs = [];
@@ -341,6 +341,7 @@ function loadDaily() {
         <td>${r.alamat || ''}</td>
         <td>${r.jumlah || ''}</td>
         <td>${statusPill(r.status)}</td>
+        <td>${r.validasiData || ''}</td>
         <td>${r.namaSertifikat || ''}</td>
         <td>${r.namaPeruntukan || ''}</td>
         <td>${r.kodePenyaluran || ''}</td>
