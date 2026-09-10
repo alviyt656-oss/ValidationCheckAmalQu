@@ -409,12 +409,21 @@ document.getElementById('upload-run').addEventListener('click', () => {
     .then(records => apiPost({ action: 'validate', tab, date, records }))
     .then(res => {
       if (res.error) throw new Error(res.message);
+      const notFound = Array.isArray(res.notFound) ? res.notFound : [];
+      const unknownStatus = Array.isArray(res.unknownStatus) ? res.unknownStatus : [];
+      const byStatus = res.byStatus || {};
+      const byStatusText = Object.keys(byStatus)
+        .map(k => `${k}: ${byStatus[k]}`)
+        .join(' · ');
+
       resultEl.innerHTML = `<div class="result-box ok">
-        <strong>${res.matched}</strong> pesanan berhasil diperbarui jadi "Paket Sudah sampai".<br>
-        <span class="muted">Total dibaca dari file: ${res.totalUploaded}
-        ${res.notFound.length ? ' · Tidak ditemukan: ' + res.notFound.length : ''}
-        ${res.skippedNotDelivered.length ? ' · Dilewati (bukan status terkirim): ' + res.skippedNotDelivered.length : ''}</span>
-        ${res.notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${res.notFound.join(', ')}</div>` : ''}
+        <strong>${res.matched || 0}</strong> pesanan berhasil diperbarui statusnya.<br>
+        <span class="muted">${byStatusText || 'Tidak ada status yang cocok.'}</span><br>
+        <span class="muted">Total dibaca dari file: ${res.totalUploaded || 0}
+        ${notFound.length ? ' · Tidak ditemukan: ' + notFound.length : ''}
+        ${unknownStatus.length ? ' · Status tidak dikenali: ' + unknownStatus.length : ''}</span>
+        ${notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${notFound.join(', ')}</div>` : ''}
+        ${unknownStatus.length ? `<div class="muted" style="margin-top:8px;">Status tidak dikenali: ${unknownStatus.map(u => u.idPesanan + ' ("' + u.status + '")').join(', ')}</div>` : ''}
       </div>`;
     })
     .catch(err => {
