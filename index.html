@@ -179,6 +179,26 @@
 
     <!-- ============ VIEW: REKAP ============ -->
     <section class="view active" id="view-recap">
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field">
+            <label for="filter-month">Bulan</label>
+            <select id="filter-month"></select>
+          </div>
+          <div class="field">
+            <label for="filter-category">Kategori</label>
+            <select id="filter-category"></select>
+          </div>
+          <div class="field">
+            <label for="chart-from">Dari tanggal</label>
+            <input type="date" id="chart-from">
+          </div>
+          <div class="field">
+            <label for="chart-to">Sampai tanggal</label>
+            <input type="date" id="chart-to">
+          </div>
+        </div>
+      </div>
       <div id="recap-cards" class="cards"></div>
       <div class="panel">
         <div class="field-row" style="margin-bottom:16px;">
@@ -192,33 +212,17 @@
               <option value="Total PCS">Total PCS</option>
             </select>
           </div>
-          <div class="field">
-            <label for="chart-from">Dari tanggal</label>
-            <input type="date" id="chart-from">
-          </div>
-          <div class="field">
-            <label for="chart-to">Sampai tanggal</label>
-            <input type="date" id="chart-to">
-          </div>
         </div>
         <canvas id="recap-chart" height="90"></canvas>
       </div>
 
       <div class="panel">
-        <div class="field-row" style="margin-bottom:16px;">
-          <h3 style="margin:0;">Komposisi status</h3>
-          <div class="field" style="margin-left:auto;">
-            <label for="pie-category">Kategori</label>
-            <select id="pie-category">
-              <option value="__all__">Semua kategori</option>
-            </select>
-          </div>
-        </div>
+        <h3>Komposisi status</h3>
         <div style="max-width:360px; margin:0 auto;">
           <canvas id="status-pie-chart" height="260"></canvas>
         </div>
         <p class="muted" style="text-align:center; margin-top:12px;">
-          Mengikuti rentang tanggal yang sama dengan grafik tren di atas.
+          Mengikuti filter Bulan/Kategori/Tanggal di atas.
         </p>
       </div>
 
@@ -348,7 +352,7 @@ function flattenRecapRows(data) {
       if (isNaN(dateObj.getTime())) return;
       block.categories.forEach(catName => {
         const vals = r[catName] || {};
-        rows.push({ date: dateObj, category: catName, values: vals });
+        rows.push({ date: dateObj, category: catName, monthLabel: block.monthLabel, values: vals });
       });
     });
   });
@@ -359,15 +363,81 @@ function toISODate(d) {
   return d.toISOString().slice(0, 10);
 }
 
+function populateGlobalFilters() {
+  const monthSel = document.getElementById('filter-month');
+  const catSel = document.getElementById('filter-category');
+
+  const months = [...new Set(lastRecapData.blocks.map(b => b.monthLabel))];
+  const categories = [...new Set(lastFlatRows.map(r => r.category))];
+
+  const curMonth = monthSel.value;
+  const curCat = catSel.value;
+
+  monthSel.innerHTML = '<option value="__all__">Semua bulan</option>' +
+    months.map(m => `<option value="${m}">${m}</option>`).join('');
+  catSel.innerHTML = '<option value="__all__">Semua kategori</option>' +
+    categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (months.includes(curMonth)) monthSel.value = curMonth;
+  if (categories.includes(curCat)) catSel.value = curCat;
+}
+
+// Set rentang tanggal (chart-from/chart-to) mengikuti bulan yang dipilih di filter global
+function syncDateRangeToMonthFilter() {
+  const monthFilter = document.getElementById('filter-month').value;
+  const fromEl = document.getElementById('chart-from');
+  const toEl = document.getElementById('chart-to');
+
+  const scoped = monthFilter === '__all__'
+    ? lastFlatRows
+    : lastFlatRows.filter(r => r.monthLabel === monthFilter);
+
+  if (scoped.length) {
+    fromEl.value = toISODate(scoped[0].date);
+    toEl.value = toISODate(scoped[scoped.length - 1].date);
+  }
+}
+
+function getFilteredRows() {
+  const monthFilter = document.getElementById('filter-month').value;
+  const catFilter = document.getElementById('filter-category').value;
+  const fromVal = document.getElementById('chart-from').value;
+  const toVal = document.getElementById('chart-to').value;
+  const fromDate = fromVal ? new Date(fromVal) : null;
+  const toDate = toVal ? new Date(toVal) : null;
+
+  return lastFlatRows.filter(row => {
+    if (monthFilter !== '__all__' && row.monthLabel !== monthFilter) return false;
+    if (catFilter !== '__all__' && row.category !== catFilter) return false;
+    if (fromDate && row.date < fromDate) return false;
+    if (toDate && row.date > toDate) return false;
+    return true;
+  });
+}
+
 function renderRecap(data) {
   lastRecapData = data;
   lastFlatRows = flattenRecapRows(data);
 
+  populateGlobalFilters();
+  syncDateRangeToMonthFilter();
+  renderRecapCards();
+  onFiltersChanged();
+  renderCompareChart();
+}
+
+function renderRecapCards() {
+  const monthFilter = document.getElementById('filter-month').value;
+  const catFilter = document.getElementById('filter-category').value;
   const cardsEl = document.getElementById('recap-cards');
   cardsEl.innerHTML = '';
 
-  data.blocks.forEach(block => {
+  lastRecapData.blocks.forEach(block => {
+    if (monthFilter !== '__all__' && block.monthLabel !== monthFilter) return;
+
     block.categories.forEach((catName, idx) => {
+      if (catFilter !== '__all__' && catName !== catFilter) return;
+
       const t = block.totals[catName];
       const totalPcs = Number(t['Total PCS']) || 0;
       const distribusi = Number(t.Distribusi) || 0;
@@ -391,40 +461,26 @@ function renderRecap(data) {
       cardsEl.appendChild(card);
     });
   });
-
-  // Set rentang tanggal default (seluruh data) hanya kalau input belum diisi user
-  const fromEl = document.getElementById('chart-from');
-  const toEl = document.getElementById('chart-to');
-  if (lastFlatRows.length) {
-    const minDate = toISODate(lastFlatRows[0].date);
-    const maxDate = toISODate(lastFlatRows[lastFlatRows.length - 1].date);
-    if (!fromEl.value) fromEl.value = minDate;
-    if (!toEl.value) toEl.value = maxDate;
-  }
-
-  renderRecapChart();
-  populatePieCategoryOptions();
-  renderStatusPie();
-  renderHighlights();
-  renderCumulativeChart();
-  renderCompareChart();
 }
 
+document.getElementById('filter-month').addEventListener('change', () => {
+  syncDateRangeToMonthFilter();
+  renderRecapCards();
+  onFiltersChanged();
+});
+document.getElementById('filter-category').addEventListener('change', () => {
+  renderRecapCards();
+  onFiltersChanged();
+});
+
 function renderRecapChart() {
-  if (!lastFlatRows.length) return;
+  const filtered = getFilteredRows();
+  if (!filtered.length) {
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
 
   const metric = document.getElementById('chart-metric').value;
-  const fromVal = document.getElementById('chart-from').value;
-  const toVal = document.getElementById('chart-to').value;
-  const fromDate = fromVal ? new Date(fromVal) : null;
-  const toDate = toVal ? new Date(toVal) : null;
-
-  const filtered = lastFlatRows.filter(row => {
-    if (fromDate && row.date < fromDate) return false;
-    if (toDate && row.date > toDate) return false;
-    return true;
-  });
-
   const dateKeys = [...new Set(filtered.map(r => toISODate(r.date)))].sort();
   const categories = [...new Set(filtered.map(r => r.category))];
 
@@ -461,25 +517,12 @@ function renderRecapChart() {
 document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
 document.getElementById('chart-from').addEventListener('change', onFiltersChanged);
 document.getElementById('chart-to').addEventListener('change', onFiltersChanged);
-document.getElementById('pie-category').addEventListener('change', renderStatusPie);
 
 function onFiltersChanged() {
   renderRecapChart();
   renderStatusPie();
   renderHighlights();
   renderCumulativeChart();
-}
-
-function getFilteredRows() {
-  const fromVal = document.getElementById('chart-from').value;
-  const toVal = document.getElementById('chart-to').value;
-  const fromDate = fromVal ? new Date(fromVal) : null;
-  const toDate = toVal ? new Date(toVal) : null;
-  return lastFlatRows.filter(row => {
-    if (fromDate && row.date < fromDate) return false;
-    if (toDate && row.date > toDate) return false;
-    return true;
-  });
 }
 
 /* ---------- Sorotan tanggal ---------- */
@@ -648,30 +691,8 @@ document.getElementById('export-btn').addEventListener('click', () => {
 
 let pieChartInstance = null;
 
-function populatePieCategoryOptions() {
-  const sel = document.getElementById('pie-category');
-  const categories = [...new Set(lastFlatRows.map(r => r.category))];
-  const current = sel.value;
-  sel.innerHTML = '<option value="__all__">Semua kategori</option>' +
-    categories.map(c => `<option value="${c}">${c}</option>`).join('');
-  if (categories.includes(current)) sel.value = current;
-}
-
 function renderStatusPie() {
-  if (!lastFlatRows.length) return;
-
-  const fromVal = document.getElementById('chart-from').value;
-  const toVal = document.getElementById('chart-to').value;
-  const fromDate = fromVal ? new Date(fromVal) : null;
-  const toDate = toVal ? new Date(toVal) : null;
-  const catFilter = document.getElementById('pie-category').value;
-
-  const filtered = lastFlatRows.filter(row => {
-    if (fromDate && row.date < fromDate) return false;
-    if (toDate && row.date > toDate) return false;
-    if (catFilter !== '__all__' && row.category !== catFilter) return false;
-    return true;
-  });
+  const filtered = getFilteredRows();
 
   let terkirim = 0, cancel = 0, tidakDiketahui = 0;
   filtered.forEach(row => {
