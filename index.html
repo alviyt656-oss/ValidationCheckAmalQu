@@ -144,10 +144,28 @@
     <section class="view active" id="view-recap">
       <div id="recap-cards" class="cards"></div>
       <div class="panel">
-        <h3>Distribusi per bulan</h3>
+        <div class="field-row" style="margin-bottom:16px;">
+          <h3 style="margin:0;">Tren distribusi harian</h3>
+          <div class="field" style="margin-left:auto;">
+            <label for="chart-metric">Tampilkan</label>
+            <select id="chart-metric">
+              <option value="Distribusi">Terkirim</option>
+              <option value="Cancel">Cancel</option>
+              <option value="Expedisi">Tidak Diketahui</option>
+              <option value="Total PCS">Total PCS</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="chart-from">Dari tanggal</label>
+            <input type="date" id="chart-from">
+          </div>
+          <div class="field">
+            <label for="chart-to">Sampai tanggal</label>
+            <input type="date" id="chart-to">
+          </div>
+        </div>
         <canvas id="recap-chart" height="90"></canvas>
       </div>
-      <div id="recap-tables"></div>
     </section>
 
     <!-- ============ VIEW: PER HARI ============ -->
@@ -243,14 +261,34 @@ document.querySelectorAll('.nav-item').forEach(item => {
 });
 
 /* ---------- Rekap ---------- */
-function renderRecap(data) {
-  const cardsEl = document.getElementById('recap-cards');
-  const tablesEl = document.getElementById('recap-tables');
-  cardsEl.innerHTML = '';
-  tablesEl.innerHTML = '';
+let lastRecapData = null;
+let lastFlatRows = [];
 
-  const chartLabels = [];
-  const chartDatasets = {};
+function flattenRecapRows(data) {
+  const rows = [];
+  data.blocks.forEach(block => {
+    block.rows.forEach(r => {
+      const dateObj = r.tanggal instanceof Date ? r.tanggal : new Date(r.tanggal);
+      if (isNaN(dateObj.getTime())) return;
+      block.categories.forEach(catName => {
+        const vals = r[catName] || {};
+        rows.push({ date: dateObj, category: catName, values: vals });
+      });
+    });
+  });
+  return rows.sort((a, b) => a.date - b.date);
+}
+
+function toISODate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function renderRecap(data) {
+  lastRecapData = data;
+  lastFlatRows = flattenRecapRows(data);
+
+  const cardsEl = document.getElementById('recap-cards');
+  cardsEl.innerHTML = '';
 
   data.blocks.forEach(block => {
     block.categories.forEach((catName, idx) => {
@@ -275,49 +313,73 @@ function renderRecap(data) {
           ${balanced ? '✓ Cek balance sesuai' : '⚠ Selisih ' + selisih.toLocaleString('id-ID') + ' (data belum sinkron)'}
         </div>`;
       cardsEl.appendChild(card);
-
-      if (!chartDatasets[catName]) chartDatasets[catName] = [];
-      chartDatasets[catName].push(t.Distribusi);
     });
-    chartLabels.push(block.monthLabel);
+  });
 
-    // Tabel harian ringkas per blok
-    const panel = document.createElement('div');
-    panel.className = 'panel';
-    let rowsHtml = block.rows.map(r => {
-      const cells = block.categories.map(c =>
-        `<td>${(r[c]['Total PCS']||0)}</td><td>${(r[c]['Distribusi']||0)}</td><td>${(r[c]['Cancel']||0)}</td><td>${(r[c]['Expedisi']||0)}</td>`).join('');
-      const tgl = r.tanggal instanceof Date ? r.tanggal.toLocaleDateString('id-ID') : r.tanggal;
-      return `<tr><td>${tgl}</td>${cells}</tr>`;
-    }).join('');
-    const headCells = block.categories.map(c => `<th>${c} — Total</th><th>${c} — Terkirim</th><th>${c} — Cancel</th><th>${c} — Tidak Diketahui</th>`).join('');
-    panel.innerHTML = `<h3>${block.monthLabel}</h3>
-      <div class="table-scroll"><table>
-      <thead><tr><th>Tanggal</th>${headCells}</tr></thead>
-      <tbody>${rowsHtml || '<tr><td colspan="99" class="muted">Belum ada data.</td></tr>'}</tbody>
-      </table></div>`;
-    tablesEl.appendChild(panel);
+  // Set rentang tanggal default (seluruh data) hanya kalau input belum diisi user
+  const fromEl = document.getElementById('chart-from');
+  const toEl = document.getElementById('chart-to');
+  if (lastFlatRows.length) {
+    const minDate = toISODate(lastFlatRows[0].date);
+    const maxDate = toISODate(lastFlatRows[lastFlatRows.length - 1].date);
+    if (!fromEl.value) fromEl.value = minDate;
+    if (!toEl.value) toEl.value = maxDate;
+  }
+
+  renderRecapChart();
+}
+
+function renderRecapChart() {
+  if (!lastFlatRows.length) return;
+
+  const metric = document.getElementById('chart-metric').value;
+  const fromVal = document.getElementById('chart-from').value;
+  const toVal = document.getElementById('chart-to').value;
+  const fromDate = fromVal ? new Date(fromVal) : null;
+  const toDate = toVal ? new Date(toVal) : null;
+
+  const filtered = lastFlatRows.filter(row => {
+    if (fromDate && row.date < fromDate) return false;
+    if (toDate && row.date > toDate) return false;
+    return true;
+  });
+
+  const dateKeys = [...new Set(filtered.map(r => toISODate(r.date)))].sort();
+  const categories = [...new Set(filtered.map(r => r.category))];
+
+  const datasets = categories.map((catName, i) => ({
+    label: catName,
+    data: dateKeys.map(dk => {
+      const row = filtered.find(r => toISODate(r.date) === dk && r.category === catName);
+      return row ? (Number(row.values[metric]) || 0) : 0;
+    }),
+    borderColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+    backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+    tension: 0.25,
+    fill: false
+  }));
+
+  const chartLabels = dateKeys.map(dk => {
+    const d = new Date(dk);
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
   });
 
   const ctx = document.getElementById('recap-chart');
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: chartLabels,
-      datasets: Object.entries(chartDatasets).map(([name, values], i) => ({
-        label: name,
-        data: values,
-        backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E'
-      }))
-    },
+    type: 'line',
+    data: { labels: chartLabels, datasets },
     options: {
       responsive: true,
       plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans' } } } },
-      scales: { y: { beginAtZero: true } }
+      scales: { y: { beginAtZero: true }, x: { ticks: { maxRotation: 0, autoSkip: true } } }
     }
   });
 }
+
+document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
+document.getElementById('chart-from').addEventListener('change', renderRecapChart);
+document.getElementById('chart-to').addEventListener('change', renderRecapChart);
 
 function loadRecap() {
   return api('recap').then(data => {
