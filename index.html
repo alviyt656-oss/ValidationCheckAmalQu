@@ -166,6 +166,24 @@
         </div>
         <canvas id="recap-chart" height="90"></canvas>
       </div>
+
+      <div class="panel">
+        <div class="field-row" style="margin-bottom:16px;">
+          <h3 style="margin:0;">Komposisi status</h3>
+          <div class="field" style="margin-left:auto;">
+            <label for="pie-category">Kategori</label>
+            <select id="pie-category">
+              <option value="__all__">Semua kategori</option>
+            </select>
+          </div>
+        </div>
+        <div style="max-width:360px; margin:0 auto;">
+          <canvas id="status-pie-chart" height="260"></canvas>
+        </div>
+        <p class="muted" style="text-align:center; margin-top:12px;">
+          Mengikuti rentang tanggal yang sama dengan grafik tren di atas.
+        </p>
+      </div>
     </section>
 
     <!-- ============ VIEW: PER HARI ============ -->
@@ -327,6 +345,8 @@ function renderRecap(data) {
   }
 
   renderRecapChart();
+  populatePieCategoryOptions();
+  renderStatusPie();
 }
 
 function renderRecapChart() {
@@ -378,8 +398,72 @@ function renderRecapChart() {
 }
 
 document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
-document.getElementById('chart-from').addEventListener('change', renderRecapChart);
-document.getElementById('chart-to').addEventListener('change', renderRecapChart);
+document.getElementById('chart-from').addEventListener('change', () => { renderRecapChart(); renderStatusPie(); });
+document.getElementById('chart-to').addEventListener('change', () => { renderRecapChart(); renderStatusPie(); });
+document.getElementById('pie-category').addEventListener('change', renderStatusPie);
+
+let pieChartInstance = null;
+
+function populatePieCategoryOptions() {
+  const sel = document.getElementById('pie-category');
+  const categories = [...new Set(lastFlatRows.map(r => r.category))];
+  const current = sel.value;
+  sel.innerHTML = '<option value="__all__">Semua kategori</option>' +
+    categories.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (categories.includes(current)) sel.value = current;
+}
+
+function renderStatusPie() {
+  if (!lastFlatRows.length) return;
+
+  const fromVal = document.getElementById('chart-from').value;
+  const toVal = document.getElementById('chart-to').value;
+  const fromDate = fromVal ? new Date(fromVal) : null;
+  const toDate = toVal ? new Date(toVal) : null;
+  const catFilter = document.getElementById('pie-category').value;
+
+  const filtered = lastFlatRows.filter(row => {
+    if (fromDate && row.date < fromDate) return false;
+    if (toDate && row.date > toDate) return false;
+    if (catFilter !== '__all__' && row.category !== catFilter) return false;
+    return true;
+  });
+
+  let terkirim = 0, cancel = 0, tidakDiketahui = 0;
+  filtered.forEach(row => {
+    terkirim += Number(row.values['Distribusi']) || 0;
+    cancel += Number(row.values['Cancel']) || 0;
+    tidakDiketahui += Number(row.values['Expedisi']) || 0;
+  });
+
+  const ctx = document.getElementById('status-pie-chart');
+  if (pieChartInstance) pieChartInstance.destroy();
+  pieChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Terkirim', 'Cancel', 'Tidak Diketahui'],
+      datasets: [{
+        data: [terkirim, cancel, tidakDiketahui],
+        backgroundColor: ['#2E5E4E', '#A6432F', '#B08D3E']
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans' } } },
+        tooltip: {
+          callbacks: {
+            label: function(item) {
+              const total = terkirim + cancel + tidakDiketahui;
+              const pct = total ? ((item.raw / total) * 100).toFixed(1) : 0;
+              return `${item.label}: ${item.raw.toLocaleString('id-ID')} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
 
 function loadRecap() {
   return api('recap').then(data => {
