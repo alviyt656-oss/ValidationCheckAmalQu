@@ -140,6 +140,7 @@
       <h2 id="view-title">Rekapitulasi</h2>
       <div class="sync-controls">
         <span id="last-sync">Belum sync</span>
+        <button id="export-csv-btn">Export CSV</button>
         <button id="refresh-btn">Refresh</button>
       </div>
     </div>
@@ -188,6 +189,21 @@
           Mengikuti rentang tanggal yang sama dengan grafik tren di atas.
         </p>
       </div>
+
+      <div class="panel">
+        <h3>Sorotan tanggal (rentang terpilih)</h3>
+        <div class="cards" id="highlight-cards"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Progres kumulatif — Terkirim</h3>
+        <canvas id="cumulative-chart" height="90"></canvas>
+      </div>
+
+      <div class="panel">
+        <h3>Perbandingan kategori per bulan</h3>
+        <canvas id="compare-chart" height="90"></canvas>
+      </div>
     </section>
 
     <!-- ============ VIEW: PER HARI ============ -->
@@ -203,6 +219,10 @@
             <input type="date" id="daily-date">
           </div>
           <button class="primary" id="daily-load">Tampilkan</button>
+          <div class="field" style="margin-left:auto;">
+            <label for="daily-search">Cari (ID Pesanan / Nama)</label>
+            <input type="text" id="daily-search" placeholder="Ketik untuk mencari...">
+          </div>
         </div>
         <div class="table-scroll">
           <table id="daily-table">
@@ -279,6 +299,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     document.getElementById('view-' + view).classList.add('active');
     document.getElementById('view-title').textContent =
       view === 'recap' ? 'Rekapitulasi' : view === 'daily' ? 'Data Per Hari' : 'Validasi Upload';
+    document.getElementById('export-csv-btn').style.display = view === 'recap' ? 'inline-block' : 'none';
   });
 });
 
@@ -351,6 +372,9 @@ function renderRecap(data) {
   renderRecapChart();
   populatePieCategoryOptions();
   renderStatusPie();
+  renderHighlights();
+  renderCumulativeChart();
+  renderCompareChart();
 }
 
 function renderRecapChart() {
@@ -402,9 +426,157 @@ function renderRecapChart() {
 }
 
 document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
-document.getElementById('chart-from').addEventListener('change', () => { renderRecapChart(); renderStatusPie(); });
-document.getElementById('chart-to').addEventListener('change', () => { renderRecapChart(); renderStatusPie(); });
+document.getElementById('chart-from').addEventListener('change', onFiltersChanged);
+document.getElementById('chart-to').addEventListener('change', onFiltersChanged);
 document.getElementById('pie-category').addEventListener('change', renderStatusPie);
+
+function onFiltersChanged() {
+  renderRecapChart();
+  renderStatusPie();
+  renderHighlights();
+  renderCumulativeChart();
+}
+
+function getFilteredRows() {
+  const fromVal = document.getElementById('chart-from').value;
+  const toVal = document.getElementById('chart-to').value;
+  const fromDate = fromVal ? new Date(fromVal) : null;
+  const toDate = toVal ? new Date(toVal) : null;
+  return lastFlatRows.filter(row => {
+    if (fromDate && row.date < fromDate) return false;
+    if (toDate && row.date > toDate) return false;
+    return true;
+  });
+}
+
+/* ---------- Sorotan tanggal ---------- */
+function renderHighlights() {
+  const filtered = getFilteredRows();
+  const byDate = {};
+
+  filtered.forEach(row => {
+    const key = toISODate(row.date);
+    if (!byDate[key]) byDate[key] = { cancel: 0, tidakDiketahui: 0 };
+    byDate[key].cancel += Number(row.values['Cancel']) || 0;
+    byDate[key].tidakDiketahui += Number(row.values['Expedisi']) || 0;
+  });
+
+  const entries = Object.entries(byDate);
+  const topCancel = [...entries].sort((a, b) => b[1].cancel - a[1].cancel).slice(0, 3).filter(e => e[1].cancel > 0);
+  const topUnknown = [...entries].sort((a, b) => b[1].tidakDiketahui - a[1].tidakDiketahui).slice(0, 3).filter(e => e[1].tidakDiketahui > 0);
+
+  const fmtList = (list, key) => list.length
+    ? list.map(([dateKey, v]) => `<div class="stat-row" style="justify-content:space-between;">
+        <span>${new Date(dateKey).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+        <b>${v[key].toLocaleString('id-ID')}</b>
+      </div>`).join('')
+    : '<div class="muted">Tidak ada.</div>';
+
+  document.getElementById('highlight-cards').innerHTML = `
+    <div class="card">
+      <div class="label">Cancel tertinggi</div>
+      <div style="margin-top:10px;">${fmtList(topCancel, 'cancel')}</div>
+    </div>
+    <div class="card gold">
+      <div class="label">Tidak diketahui terbanyak</div>
+      <div style="margin-top:10px;">${fmtList(topUnknown, 'tidakDiketahui')}</div>
+    </div>`;
+}
+
+/* ---------- Progres kumulatif ---------- */
+let cumulativeChartInstance = null;
+
+function renderCumulativeChart() {
+  const filtered = getFilteredRows();
+  const dateKeys = [...new Set(filtered.map(r => toISODate(r.date)))].sort();
+  const categories = [...new Set(filtered.map(r => r.category))];
+
+  const datasets = categories.map((catName, i) => {
+    let running = 0;
+    const data = dateKeys.map(dk => {
+      const row = filtered.find(r => toISODate(r.date) === dk && r.category === catName);
+      running += row ? (Number(row.values['Distribusi']) || 0) : 0;
+      return running;
+    });
+    return {
+      label: catName,
+      data,
+      borderColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+      backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E',
+      tension: 0.2,
+      fill: false
+    };
+  });
+
+  const chartLabels = dateKeys.map(dk => new Date(dk).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
+
+  const ctx = document.getElementById('cumulative-chart');
+  if (cumulativeChartInstance) cumulativeChartInstance.destroy();
+  cumulativeChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels: chartLabels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans' } } } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+/* ---------- Perbandingan kategori per bulan ---------- */
+let compareChartInstance = null;
+
+function renderCompareChart() {
+  if (!lastRecapData) return;
+  const labels = lastRecapData.blocks.map(b => b.monthLabel);
+  const categories = [...new Set(lastRecapData.blocks.flatMap(b => b.categories))];
+
+  const datasets = categories.map((catName, i) => ({
+    label: catName,
+    data: lastRecapData.blocks.map(b => Number((b.totals[catName] || {})['Distribusi']) || 0),
+    backgroundColor: i === 0 ? '#2E5E4E' : '#B08D3E'
+  }));
+
+  const ctx = document.getElementById('compare-chart');
+  if (compareChartInstance) compareChartInstance.destroy();
+  compareChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans' } } } },
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+    }
+  });
+}
+
+/* ---------- Export CSV ---------- */
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+  const filtered = getFilteredRows();
+  const header = ['Tanggal', 'Kategori', 'Total PCS', 'Terkirim', 'Cancel', 'Tidak Diketahui'];
+  const lines = [header.join(',')];
+
+  filtered
+    .sort((a, b) => a.date - b.date)
+    .forEach(row => {
+      lines.push([
+        toISODate(row.date),
+        row.category,
+        row.values['Total PCS'] || 0,
+        row.values['Distribusi'] || 0,
+        row.values['Cancel'] || 0,
+        row.values['Expedisi'] || 0
+      ].join(','));
+    });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rekap-wakaf-${document.getElementById('chart-from').value}_${document.getElementById('chart-to').value}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 let pieChartInstance = null;
 
@@ -494,16 +666,12 @@ function statusPill(status) {
   return `<span class="status-pill ${cls}">${label}</span>`;
 }
 
-function loadDaily() {
-  const tab = document.getElementById('daily-tab').value;
-  const date = document.getElementById('daily-date').value;
-  if (!tab || !date) return;
+let lastDailyRecords = [];
 
-  return api('daily', { tab, date }).then(data => {
-    if (data.error) throw new Error(data.message);
-    const tbody = document.querySelector('#daily-table tbody');
-    const emptyEl = document.getElementById('daily-empty');
-    tbody.innerHTML = data.records.map(r => `
+function renderDailyTable(records) {
+  const tbody = document.querySelector('#daily-table tbody');
+  const emptyEl = document.getElementById('daily-empty');
+  tbody.innerHTML = records.map(r => `
       <tr>
         <td>${r.resi || ''}</td>
         <td>${r.idPesanan || ''}</td>
@@ -515,10 +683,33 @@ function loadDaily() {
         <td>${r.namaPeruntukan || ''}</td>
         <td>${r.kodePenyaluran || ''}</td>
       </tr>`).join('');
-    emptyEl.style.display = data.records.length ? 'none' : 'block';
-    emptyEl.textContent = data.records.length ? '' : 'Tidak ada data untuk tanggal ini.';
+  emptyEl.style.display = records.length ? 'none' : 'block';
+  emptyEl.textContent = records.length ? '' : 'Tidak ada data untuk tanggal ini.';
+}
+
+function loadDaily() {
+  const tab = document.getElementById('daily-tab').value;
+  const date = document.getElementById('daily-date').value;
+  if (!tab || !date) return;
+
+  return api('daily', { tab, date }).then(data => {
+    if (data.error) throw new Error(data.message);
+    lastDailyRecords = data.records || [];
+    document.getElementById('daily-search').value = '';
+    renderDailyTable(lastDailyRecords);
   });
 }
+
+document.getElementById('daily-search').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) { renderDailyTable(lastDailyRecords); return; }
+  const filtered = lastDailyRecords.filter(r =>
+    String(r.idPesanan || '').toLowerCase().includes(q) ||
+    String(r.namaSertifikat || '').toLowerCase().includes(q) ||
+    String(r.namaPeruntukan || '').toLowerCase().includes(q)
+  );
+  renderDailyTable(filtered);
+});
 
 document.getElementById('daily-load').addEventListener('click', () => loadDaily().catch(showTopError));
 
