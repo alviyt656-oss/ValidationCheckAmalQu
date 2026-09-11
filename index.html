@@ -427,39 +427,54 @@ function renderRecap(data) {
 }
 
 function renderRecapCards() {
-  const monthFilter = document.getElementById('filter-month').value;
-  const catFilter = document.getElementById('filter-category').value;
+  const filtered = getFilteredRows();
   const cardsEl = document.getElementById('recap-cards');
   cardsEl.innerHTML = '';
 
-  lastRecapData.blocks.forEach(block => {
-    if (monthFilter !== '__all__' && block.monthLabel !== monthFilter) return;
+  const allCategories = [...new Set(lastFlatRows.map(r => r.category))];
 
-    block.categories.forEach((catName, idx) => {
-      if (catFilter !== '__all__' && catName !== catFilter) return;
+  const groups = {};
+  const order = [];
+  filtered.forEach(row => {
+    const key = row.monthLabel + '|' + row.category;
+    if (!groups[key]) {
+      groups[key] = {
+        monthLabel: row.monthLabel, category: row.category,
+        totalPcs: 0, distribusi: 0, cancel: 0, expedisi: 0
+      };
+      order.push(key);
+    }
+    const g = groups[key];
+    g.totalPcs += Number(row.values['Total PCS']) || 0;
+    g.distribusi += Number(row.values['Distribusi']) || 0;
+    g.cancel += Number(row.values['Cancel']) || 0;
+    g.expedisi += Number(row.values['Expedisi']) || 0;
+  });
 
-      const t = block.totals[catName];
-      const totalPcs = Number(t['Total PCS']) || 0;
-      const distribusi = Number(t.Distribusi) || 0;
-      const cancel = Number(t.Cancel) || 0;
-      const tidakDiketahui = Number(t.Expedisi) || 0;
-      const selisih = totalPcs - distribusi - cancel - tidakDiketahui;
-      const balanced = selisih === 0;
+  if (!order.length) {
+    cardsEl.innerHTML = '<div class="muted">Tidak ada data untuk filter ini.</div>';
+    return;
+  }
 
-      const card = document.createElement('div');
-      card.className = 'card' + (idx % 2 === 1 ? ' gold' : '');
-      card.innerHTML = `<div class="label">${block.monthLabel} — ${catName}</div>
-        <div class="value">${distribusi.toLocaleString('id-ID')}</div>
-        <div class="muted">Terkirim dari ${totalPcs.toLocaleString('id-ID')} PCS</div>
-        <div class="stat-row">
-          <span>Cancel: <b>${cancel.toLocaleString('id-ID')}</b></span>
-          <span>Tidak diketahui: <b>${tidakDiketahui.toLocaleString('id-ID')}</b></span>
-        </div>
-        <div class="balance-line ${balanced ? 'ok' : 'warn'}">
-          ${balanced ? '✓ Cek balance sesuai' : '⚠ Selisih ' + selisih.toLocaleString('id-ID') + ' (data belum sinkron)'}
-        </div>`;
-      cardsEl.appendChild(card);
-    });
+  order.forEach(key => {
+    const g = groups[key];
+    const selisih = g.totalPcs - g.distribusi - g.cancel - g.expedisi;
+    const balanced = selisih === 0;
+    const isGold = allCategories.indexOf(g.category) === 1;
+
+    const card = document.createElement('div');
+    card.className = 'card' + (isGold ? ' gold' : '');
+    card.innerHTML = `<div class="label">${g.monthLabel} — ${g.category}</div>
+      <div class="value">${g.distribusi.toLocaleString('id-ID')}</div>
+      <div class="muted">Terkirim dari ${g.totalPcs.toLocaleString('id-ID')} PCS</div>
+      <div class="stat-row">
+        <span>Cancel: <b>${g.cancel.toLocaleString('id-ID')}</b></span>
+        <span>Tidak diketahui: <b>${g.expedisi.toLocaleString('id-ID')}</b></span>
+      </div>
+      <div class="balance-line ${balanced ? 'ok' : 'warn'}">
+        ${balanced ? '✓ Cek balance sesuai' : '⚠ Selisih ' + selisih.toLocaleString('id-ID') + ' (data belum sinkron)'}
+      </div>`;
+    cardsEl.appendChild(card);
   });
 }
 
@@ -515,8 +530,8 @@ function renderRecapChart() {
 }
 
 document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
-document.getElementById('chart-from').addEventListener('change', onFiltersChanged);
-document.getElementById('chart-to').addEventListener('change', onFiltersChanged);
+document.getElementById('chart-from').addEventListener('change', () => { renderRecapCards(); onFiltersChanged(); });
+document.getElementById('chart-to').addEventListener('change', () => { renderRecapCards(); onFiltersChanged(); });
 
 function onFiltersChanged() {
   renderRecapChart();
