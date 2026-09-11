@@ -12,26 +12,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
-    --bg: #F6F3EC;
+    --bg: #F4F6FA;
     --panel: #FFFFFF;
-    --panel-tint: #FBFAF5;
-    --ink: #1C2620;
-    --ink-soft: #667066;
-    --ink-faint: #96A092;
-    --border: #E4E2D6;
-    --border-strong: #CDD2C1;
-    --green: #2F5D46;
-    --green-dark: #203E30;
-    --green-soft: #E4EFE7;
-    --gold: #A9822F;
-    --gold-dark: #8A6A21;
-    --gold-soft: #F3E9D2;
-    --danger: #A34A31;
-    --danger-soft: #F5E1D8;
-    --teal: #3E6E72;
+    --panel-tint: #F7F9FC;
+    --ink: #16213D;
+    --ink-soft: #5C6B85;
+    --ink-faint: #97A3B8;
+    --border: #E3E8F0;
+    --border-strong: #C7D0E0;
+    --green: #0E9488;
+    --green-dark: #14213D;
+    --green-soft: #E1F5F3;
+    --gold: #F2994A;
+    --gold-dark: #C9701E;
+    --gold-soft: #FDEEE0;
+    --danger: #E1493D;
+    --danger-soft: #FBE4DE;
+    --teal: #2D7D9A;
+    --navy: #101A30;
+    --navy-soft: rgba(255,255,255,.08);
     --radius: 6px;
-    --shadow-sm: 0 1px 2px rgba(28,38,32,.05);
-    --shadow-md: 0 4px 16px rgba(28,38,32,.06);
+    --shadow-sm: 0 1px 2px rgba(16,26,48,.06);
+    --shadow-md: 0 4px 16px rgba(16,26,48,.08);
   }
   *{ box-sizing: border-box; }
   body{
@@ -138,6 +140,67 @@
   .muted{ color:var(--ink-soft); font-size:12px; }
 
   .empty{ padding:40px 0; text-align:center; color:var(--ink-faint); }
+
+  /* ---- Sidebar v2 ---- */
+  .sidebar{ background:var(--navy); border-right:none; color:#EDF1F8; }
+  .brand{ display:flex; align-items:center; gap:12px; border-bottom-color:rgba(255,255,255,.12); }
+  .brand-logo{
+    width:38px; height:38px; border-radius:8px; background:rgba(255,255,255,.1);
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+  }
+  .brand h1{ font-size:16px; color:#fff; }
+  .brand p{ color:rgba(237,242,248,.65); font-size:11px; }
+  .nav-item{ color:rgba(237,242,248,.75); border-left:3px solid transparent; }
+  .nav-item .nav-icon{ opacity:.9; }
+  .nav-item:hover{ background:var(--navy-soft); color:#fff; }
+  .nav-item.active{ background:var(--navy-soft); color:#fff; border-left-color:var(--gold); }
+  .sidebar-foot{ color:rgba(237,242,248,.55); }
+  .user-chip{ display:flex; align-items:center; gap:10px; padding:0 24px 16px; }
+  .user-avatar{
+    width:34px; height:34px; border-radius:50%; background:var(--gold); color:var(--navy);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; flex-shrink:0;
+  }
+  .user-name{ font-size:13px; color:#fff; font-weight:500; }
+  .user-role{ font-size:11px; color:rgba(237,242,248,.6); }
+  .copyright{ padding:0 24px; opacity:.6; }
+
+  /* ---- Top header (greeting) ---- */
+  .top-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .top-header .greeting{ font-size:14px; color:var(--ink-soft); }
+  .top-icons{ display:flex; align-items:center; gap:12px; }
+  .icon-btn{
+    position:relative; width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; padding:0; font-size:15px; background:var(--panel); border:1px solid var(--border);
+  }
+  .notif-dot{ position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--danger); }
+  .avatar-chip{
+    width:36px; height:36px; border-radius:50%; background:var(--green); color:#fff; font-size:12px;
+    font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .view-subtitle{ margin:4px 0 0; font-size:13px; color:var(--ink-soft); }
+
+  /* ---- Kartu v2: icon, badge, link detail ---- */
+  .card-top{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+  .card-icon{
+    width:38px; height:38px; border-radius:8px; background:var(--green-soft); color:var(--green-dark);
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+  }
+  .card.gold .card-icon{ background:var(--gold-soft); color:var(--gold-dark); }
+  .badge-change{ font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; }
+  .badge-change.up{ background:var(--green-soft); color:var(--green-dark); }
+  .badge-change.down{ background:var(--danger-soft); color:var(--danger); }
+  .card-detail-link{
+    display:inline-block; margin-top:12px; font-size:12px; font-weight:600; color:var(--green);
+    text-decoration:none; cursor:pointer;
+  }
+  .card.gold .card-detail-link{ color:var(--gold-dark); }
+  .card-value-row{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+
+  /* ---- Laporan (riwayat) ---- */
+  .history-summary{ display:flex; gap:24px; flex-wrap:wrap; margin-bottom:20px; }
+  .history-summary .stat{ font-size:13px; color:var(--ink-soft); }
+  .history-summary .stat b{ display:block; font-family:'Source Serif 4', serif; font-size:22px; color:var(--green-dark); }
+  .placeholder-box{ text-align:center; padding:60px 20px; color:var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -146,25 +209,47 @@
   <aside class="sidebar">
     <div>
       <div class="brand">
-        <h1>Wakaf TikTok</h1>
-        <p>Dashboard Pemenuhan Warehouse</p>
+        <div class="brand-logo">🌿</div>
+        <div>
+          <h1>Safwan Quran</h1>
+          <p>Marketplace &amp; Distribution</p>
+        </div>
       </div>
       <nav>
-        <div class="nav-item active" data-view="recap"><span class="nav-icon">&#9673;</span> Rekap</div>
-        <div class="nav-item" data-view="daily"><span class="nav-icon">&#9636;</span> Per Hari</div>
-        <div class="nav-item" data-view="upload"><span class="nav-icon">&#8593;</span> Validasi Upload</div>
+        <div class="nav-item" data-view="dashboard"><span class="nav-icon">⌂</span> Dashboard</div>
+        <div class="nav-item active" data-view="recap"><span class="nav-icon">◉</span> Rekapitulasi</div>
+        <div class="nav-item" data-view="daily"><span class="nav-icon">▤</span> Pesanan</div>
+        <div class="nav-item" data-view="upload"><span class="nav-icon">🚚</span> Pengiriman</div>
+        <div class="nav-item" data-view="produk"><span class="nav-icon">▣</span> Produk</div>
+        <div class="nav-item" data-view="laporan"><span class="nav-icon">▦</span> Laporan</div>
+        <div class="nav-item" data-view="pengaturan"><span class="nav-icon">⚙</span> Pengaturan</div>
       </nav>
     </div>
-    <div class="sidebar-foot">Sync dari Google Sheets.<br>Klik Refresh untuk data terbaru.
-      <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border); opacity:.7;">
-        © 2026 Builder: Alvi Hardiansyah
+    <div class="sidebar-foot">
+      <div class="user-chip">
+        <div class="user-avatar">AH</div>
+        <div>
+          <div class="user-name">Alvi Hardiansyah</div>
+          <div class="user-role">Admin</div>
+        </div>
       </div>
+      <div class="copyright">© 2026 Builder: Alvi Hardiansyah</div>
     </div>
   </aside>
 
   <main>
+    <div class="top-header">
+      <div class="greeting">Selamat datang, <strong>Alvi</strong> 👋</div>
+      <div class="top-icons">
+        <button class="icon-btn" title="Notifikasi" type="button">🔔<span class="notif-dot"></span></button>
+        <div class="avatar-chip">AH</div>
+      </div>
+    </div>
     <div class="topbar">
-      <h2 id="view-title">Rekapitulasi</h2>
+      <div>
+        <h2 id="view-title">Rekapitulasi</h2>
+        <p class="view-subtitle" id="view-subtitle">Pantau performa distribusi dan pengiriman pesanan Anda.</p>
+      </div>
       <div class="sync-controls">
         <span id="last-sync">Belum sync</span>
         <select id="export-format" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:13px;">
@@ -172,10 +257,19 @@
           <option value="xlsx">Excel (.xlsx)</option>
           <option value="pdf">PDF</option>
         </select>
-        <button id="export-btn">Export</button>
-        <button id="refresh-btn">Refresh</button>
+        <button id="export-btn">⬇ Export</button>
+        <button id="refresh-btn">⟳ Refresh</button>
       </div>
     </div>
+
+    <!-- ============ VIEW: DASHBOARD ============ -->
+    <section class="view" id="view-dashboard">
+      <div id="dashboard-cards" class="cards"></div>
+      <div class="panel">
+        <h3>Ringkasan cepat</h3>
+        <p class="muted">Untuk lihat rincian lengkap per bulan/kategori, buka menu <strong>Rekapitulasi</strong>. Untuk cek pesanan satu-satu, buka menu <strong>Pesanan</strong>. Untuk proses validasi status pengiriman, buka menu <strong>Pengiriman</strong>.</p>
+      </div>
+    </section>
 
     <!-- ============ VIEW: REKAP ============ -->
     <section class="view active" id="view-recap">
@@ -201,8 +295,12 @@
       </div>
       <div id="recap-cards" class="cards"></div>
       <div class="panel">
-        <div class="field-row" style="margin-bottom:16px;">
-          <h3 style="margin:0;">Tren distribusi harian</h3>
+        <div class="field-row" style="margin-bottom:16px; align-items:center;">
+          <div class="card-icon" style="margin-right:4px;">📊</div>
+          <div>
+            <h3 style="margin:0;">Tren distribusi harian</h3>
+            <p class="muted" style="margin:2px 0 0;">Jumlah pesanan yang terkirim per hari dalam periode yang dipilih.</p>
+          </div>
           <div class="field" style="margin-left:auto;">
             <label for="chart-metric">Tampilkan</label>
             <select id="chart-metric">
@@ -301,6 +399,48 @@
         <div id="upload-result"></div>
       </div>
     </section>
+
+    <!-- ============ VIEW: PRODUK ============ -->
+    <section class="view" id="view-produk">
+      <div class="panel">
+        <div class="placeholder-box">
+          <div style="font-size:32px; margin-bottom:12px;">▣</div>
+          <p>Halaman Produk belum tersedia — nanti bisa dipakai untuk kelola daftar produk wakaf (Al Wakaf, Buku Super Tahsin, dll) di luar data pesanan.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: LAPORAN ============ -->
+    <section class="view" id="view-laporan">
+      <div class="panel">
+        <div class="history-summary">
+          <div class="stat"><b id="laporan-total-refresh">0</b>Total refresh data</div>
+          <div class="stat"><b id="laporan-total-export">0</b>Total export</div>
+          <div class="stat"><b id="laporan-last-activity">—</b>Aktivitas terakhir</div>
+        </div>
+        <div class="field-row" style="margin-bottom:12px;">
+          <button id="laporan-clear-btn">Hapus riwayat</button>
+        </div>
+        <div class="table-scroll">
+          <table id="laporan-table">
+            <thead><tr><th>Waktu</th><th>Aktivitas</th><th>Detail</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div class="empty" id="laporan-empty">Belum ada riwayat aktivitas.</div>
+        </div>
+        <p class="muted" style="margin-top:12px;">Riwayat ini tersimpan di browser ini saja (belum sinkron antar perangkat).</p>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: PENGATURAN ============ -->
+    <section class="view" id="view-pengaturan">
+      <div class="panel">
+        <div class="placeholder-box">
+          <div style="font-size:32px; margin-bottom:12px;">⚙</div>
+          <p>Halaman Pengaturan belum tersedia — nanti bisa dipakai untuk atur URL Apps Script, mapping kolom, dan preferensi lain tanpa edit kode langsung.</p>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -308,7 +448,7 @@
 /* ============================================================
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3nYkGMFcz6yaN5vQkYL-wRkEKRIjC7bJmOnK0XK1acCFi_BgH_Oi5_EfZr_NKukX5/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyas7fEgwn_94XZPRcJTpo8xx4xz69d0rGkEeYtHzqiLoDsGHnrhXPy7MtHa_qR9EKl/exec';
 
 let monthlyTabs = [];
 let chartInstance = null;
@@ -325,18 +465,33 @@ function apiPost(body) {
 }
 
 /* ---------- Navigasi ---------- */
+const VIEW_META = {
+  dashboard: { title: 'Dashboard', subtitle: 'Ringkasan singkat performa distribusi dan pengiriman.' },
+  recap: { title: 'Rekapitulasi', subtitle: 'Pantau performa distribusi dan pengiriman pesanan Anda.' },
+  daily: { title: 'Pesanan', subtitle: 'Lihat detail pesanan per tanggal dan kategori.' },
+  upload: { title: 'Pengiriman', subtitle: 'Validasi status pengiriman dari file harian.' },
+  produk: { title: 'Produk', subtitle: 'Kelola daftar produk wakaf.' },
+  laporan: { title: 'Laporan', subtitle: 'Riwayat penarikan data dan export.' },
+  pengaturan: { title: 'Pengaturan', subtitle: 'Preferensi dan konfigurasi dashboard.' }
+};
+
+function goToView(view) {
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+
+  const meta = VIEW_META[view] || { title: view, subtitle: '' };
+  document.getElementById('view-title').textContent = meta.title;
+  document.getElementById('view-subtitle').textContent = meta.subtitle;
+
+  document.getElementById('export-btn').style.display = view === 'recap' ? 'inline-block' : 'none';
+  document.getElementById('export-format').style.display = view === 'recap' ? 'inline-block' : 'none';
+
+  if (view === 'laporan') renderLaporan();
+}
+
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    item.classList.add('active');
-    const view = item.dataset.view;
-    document.getElementById('view-' + view).classList.add('active');
-    document.getElementById('view-title').textContent =
-      view === 'recap' ? 'Rekapitulasi' : view === 'daily' ? 'Data Per Hari' : 'Validasi Upload';
-    document.getElementById('export-btn').style.display = view === 'recap' ? 'inline-block' : 'none';
-    document.getElementById('export-format').style.display = view === 'recap' ? 'inline-block' : 'none';
-  });
+  item.addEventListener('click', () => goToView(item.dataset.view));
 });
 
 /* ---------- Rekap ---------- */
@@ -425,6 +580,65 @@ function renderRecap(data) {
   renderRecapCards();
   onFiltersChanged();
   renderCompareChart();
+  renderDashboardSummary();
+}
+
+function renderDashboardSummary() {
+  const cardsEl = document.getElementById('dashboard-cards');
+  if (!cardsEl || !lastFlatRows.length) return;
+
+  let totalPcs = 0, distribusi = 0, cancel = 0, expedisi = 0;
+  lastFlatRows.forEach(row => {
+    totalPcs += Number(row.values['Total PCS']) || 0;
+    distribusi += Number(row.values['Distribusi']) || 0;
+    cancel += Number(row.values['Cancel']) || 0;
+    expedisi += Number(row.values['Expedisi']) || 0;
+  });
+
+  const categories = [...new Set(lastFlatRows.map(r => r.category))];
+  const months = [...new Set(lastFlatRows.map(r => r.monthLabel))];
+
+  cardsEl.innerHTML = `
+    <div class="card">
+      <div class="card-top"><div class="card-icon">📦</div></div>
+      <div class="label">Total terkirim (semua bulan)</div>
+      <div class="value">${distribusi.toLocaleString('id-ID')}</div>
+      <div class="muted">Dari ${totalPcs.toLocaleString('id-ID')} PCS · ${months.length} bulan tercatat</div>
+    </div>
+    <div class="card gold">
+      <div class="card-top"><div class="card-icon">📖</div></div>
+      <div class="label">Kategori aktif</div>
+      <div class="value">${categories.length}</div>
+      <div class="muted">${categories.join(' & ') || '-'}</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><div class="card-icon">✕</div></div>
+      <div class="label">Total cancel</div>
+      <div class="value">${cancel.toLocaleString('id-ID')}</div>
+      <div class="muted">Sepanjang periode tercatat</div>
+    </div>
+    <div class="card gold">
+      <div class="card-top"><div class="card-icon">?</div></div>
+      <div class="label">Tidak diketahui statusnya</div>
+      <div class="value">${expedisi.toLocaleString('id-ID')}</div>
+      <div class="muted">Perlu ditindaklanjuti lewat menu Pengiriman</div>
+    </div>`;
+}
+
+function getMonthOverMonthChange(monthLabel, category) {
+  const idx = lastRecapData.blocks.findIndex(b => b.monthLabel === monthLabel);
+  if (idx <= 0) return null;
+  const prevTotals = (lastRecapData.blocks[idx - 1].totals || {})[category];
+  const curTotals = (lastRecapData.blocks[idx].totals || {})[category];
+  if (!prevTotals || !curTotals) return null;
+  const prevVal = Number(prevTotals.Distribusi) || 0;
+  const curVal = Number(curTotals.Distribusi) || 0;
+  if (prevVal === 0) return null;
+  return ((curVal - prevVal) / prevVal) * 100;
+}
+
+function categoryIcon(category) {
+  return category.toLowerCase().includes('tahsin') ? '📖' : '📦';
 }
 
 function renderRecapCards() {
@@ -462,11 +676,23 @@ function renderRecapCards() {
     const selisih = g.totalPcs - g.distribusi - g.cancel - g.expedisi;
     const balanced = selisih === 0;
     const isGold = allCategories.indexOf(g.category) === 1;
+    const change = getMonthOverMonthChange(g.monthLabel, g.category);
+    const badgeHtml = change === null ? '' : `
+      <span class="badge-change ${change >= 0 ? 'up' : 'down'}">
+        ${change >= 0 ? '↗' : '↘'} ${Math.abs(change).toFixed(0)}%
+      </span>`;
 
     const card = document.createElement('div');
     card.className = 'card' + (isGold ? ' gold' : '');
-    card.innerHTML = `<div class="label">${g.monthLabel} — ${g.category}</div>
-      <div class="value">${g.distribusi.toLocaleString('id-ID')}</div>
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-icon">${categoryIcon(g.category)}</div>
+        ${badgeHtml}
+      </div>
+      <div class="label">${g.monthLabel} — ${g.category}</div>
+      <div class="card-value-row">
+        <div class="value">${g.distribusi.toLocaleString('id-ID')}</div>
+      </div>
       <div class="muted">Terkirim dari ${g.totalPcs.toLocaleString('id-ID')} PCS</div>
       <div class="stat-row">
         <span>Cancel: <b>${g.cancel.toLocaleString('id-ID')}</b></span>
@@ -474,7 +700,9 @@ function renderRecapCards() {
       </div>
       <div class="balance-line ${balanced ? 'ok' : 'warn'}">
         ${balanced ? '✓ Cek balance sesuai' : '⚠ Selisih ' + selisih.toLocaleString('id-ID') + ' (data belum sinkron)'}
-      </div>`;
+      </div>
+      <a class="card-detail-link" data-goto-daily="1">Lihat detail ›</a>`;
+    card.querySelector('[data-goto-daily]').addEventListener('click', () => goToView('daily'));
     cardsEl.appendChild(card);
   });
 }
@@ -500,17 +728,21 @@ function renderRecapChart() {
   const dateKeys = [...new Set(filtered.map(r => toISODate(r.date)))].sort();
   const categories = [...new Set(filtered.map(r => r.category))];
 
-  const datasets = categories.map((catName, i) => ({
-    label: catName,
-    data: dateKeys.map(dk => {
-      const row = filtered.find(r => toISODate(r.date) === dk && r.category === catName);
-      return row ? (Number(row.values[metric]) || 0) : 0;
-    }),
-    borderColor: i === 0 ? '#2F5D46' : '#A9822F',
-    backgroundColor: i === 0 ? '#2F5D46' : '#A9822F',
-    tension: 0.25,
-    fill: false
-  }));
+  const datasets = categories.map((catName, i) => {
+    const color = i === 0 ? '#0E9488' : '#F2994A';
+    return {
+      label: catName,
+      data: dateKeys.map(dk => {
+        const row = filtered.find(r => toISODate(r.date) === dk && r.category === catName);
+        return row ? (Number(row.values[metric]) || 0) : 0;
+      }),
+      borderColor: color,
+      backgroundColor: color + '22',
+      pointRadius: 2,
+      tension: 0.3,
+      fill: true
+    };
+  });
 
   const chartLabels = dateKeys.map(dk => {
     const d = new Date(dk);
@@ -595,8 +827,8 @@ function renderCumulativeChart() {
     return {
       label: catName,
       data,
-      borderColor: i === 0 ? '#2F5D46' : '#A9822F',
-      backgroundColor: i === 0 ? '#2F5D46' : '#A9822F',
+      borderColor: i === 0 ? '#0E9488' : '#F2994A',
+      backgroundColor: i === 0 ? '#0E9488' : '#F2994A',
       tension: 0.2,
       fill: false
     };
@@ -628,7 +860,7 @@ function renderCompareChart() {
   const datasets = categories.map((catName, i) => ({
     label: catName,
     data: lastRecapData.blocks.map(b => Number((b.totals[catName] || {})['Distribusi']) || 0),
-    backgroundColor: i === 0 ? '#2F5D46' : '#A9822F'
+    backgroundColor: i === 0 ? '#0E9488' : '#F2994A'
   }));
 
   const ctx = document.getElementById('compare-chart');
@@ -705,6 +937,10 @@ document.getElementById('export-btn').addEventListener('click', () => {
   if (format === 'csv') exportAsCSV();
   else if (format === 'xlsx') exportAsXLSX();
   else if (format === 'pdf') exportAsPDF();
+
+  const from = document.getElementById('chart-from').value;
+  const to = document.getElementById('chart-to').value;
+  logHistoryEvent('export', `${format.toUpperCase()} (${from} s.d. ${to})`);
 });
 
 let pieChartInstance = null;
@@ -727,7 +963,7 @@ function renderStatusPie() {
       labels: ['Terkirim', 'Cancel', 'Tidak Diketahui'],
       datasets: [{
         data: [terkirim, cancel, tidakDiketahui],
-        backgroundColor: ['#2F5D46', '#A34A31', '#A9822F']
+        backgroundColor: ['#0E9488', '#E1493D', '#F2994A']
       }]
     },
     options: {
@@ -882,6 +1118,50 @@ document.getElementById('upload-run').addEventListener('click', () => {
     .finally(() => { btn.disabled = false; });
 });
 
+/* ---------- Riwayat (Laporan) ---------- */
+const HISTORY_KEY = 'wakaf_dashboard_history';
+
+function logHistoryEvent(type, detail) {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { history = []; }
+  history.unshift({ time: new Date().toISOString(), type, detail: detail || '' });
+  if (history.length > 200) history = history.slice(0, 200);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (e) { /* abaikan kalau storage penuh */ }
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+}
+
+function renderLaporan() {
+  const history = getHistory();
+  const refreshCount = history.filter(h => h.type === 'refresh').length;
+  const exportCount = history.filter(h => h.type === 'export').length;
+
+  document.getElementById('laporan-total-refresh').textContent = refreshCount.toLocaleString('id-ID');
+  document.getElementById('laporan-total-export').textContent = exportCount.toLocaleString('id-ID');
+  document.getElementById('laporan-last-activity').textContent = history.length
+    ? new Date(history[0].time).toLocaleString('id-ID')
+    : '—';
+
+  const tbody = document.querySelector('#laporan-table tbody');
+  const emptyEl = document.getElementById('laporan-empty');
+  const label = { refresh: 'Refresh data', export: 'Export data' };
+
+  tbody.innerHTML = history.map(h => `
+    <tr>
+      <td>${new Date(h.time).toLocaleString('id-ID')}</td>
+      <td>${label[h.type] || h.type}</td>
+      <td>${h.detail || '-'}</td>
+    </tr>`).join('');
+  emptyEl.style.display = history.length ? 'none' : 'block';
+}
+
+document.getElementById('laporan-clear-btn').addEventListener('click', () => {
+  localStorage.removeItem(HISTORY_KEY);
+  renderLaporan();
+});
+
 /* ---------- Refresh & error handling ---------- */
 function showTopError(err) {
   document.getElementById('last-sync').textContent = 'Gagal sync: ' + err.message;
@@ -893,6 +1173,7 @@ function refreshAll() {
     .then(() => {
       document.getElementById('last-sync').textContent =
         'Sync terakhir: ' + new Date().toLocaleTimeString('id-ID');
+      logHistoryEvent('refresh', '');
     })
     .catch(showTopError);
 }
