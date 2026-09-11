@@ -155,7 +155,7 @@
         <div class="nav-item" data-view="upload"><span class="nav-icon">&#8593;</span> Validasi Upload</div>
       </nav>
     </div>
-    <div class="sidebar-foot">Sync dari Google Sheets.<br>Auto-refresh tiap 30 detik.
+    <div class="sidebar-foot">Sync dari Google Sheets.<br>Klik Refresh untuk data terbaru.
       <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border); opacity:.7;">
         © 2026 Builder: Alvi Hardiansyah
       </div>
@@ -309,7 +309,6 @@
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyas7fEgwn_94XZPRcJTpo8xx4xz69d0rGkEeYtHzqiLoDsGHnrhXPy7MtHa_qR9EKl/exec';
-const AUTO_REFRESH_MS = 30000;
 
 let monthlyTabs = [];
 let chartInstance = null;
@@ -360,7 +359,10 @@ function flattenRecapRows(data) {
 }
 
 function toISODate(d) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function populateGlobalFilters() {
@@ -403,14 +405,13 @@ function getFilteredRows() {
   const catFilter = document.getElementById('filter-category').value;
   const fromVal = document.getElementById('chart-from').value;
   const toVal = document.getElementById('chart-to').value;
-  const fromDate = fromVal ? new Date(fromVal) : null;
-  const toDate = toVal ? new Date(toVal) : null;
 
   return lastFlatRows.filter(row => {
     if (monthFilter !== '__all__' && row.monthLabel !== monthFilter) return false;
     if (catFilter !== '__all__' && row.category !== catFilter) return false;
-    if (fromDate && row.date < fromDate) return false;
-    if (toDate && row.date > toDate) return false;
+    const rowDateStr = toISODate(row.date);
+    if (fromVal && rowDateStr < fromVal) return false;
+    if (toVal && rowDateStr > toVal) return false;
     return true;
   });
 }
@@ -530,8 +531,10 @@ function renderRecapChart() {
 }
 
 document.getElementById('chart-metric').addEventListener('change', renderRecapChart);
-document.getElementById('chart-from').addEventListener('change', () => { renderRecapCards(); onFiltersChanged(); });
-document.getElementById('chart-to').addEventListener('change', () => { renderRecapCards(); onFiltersChanged(); });
+['change', 'input'].forEach(evt => {
+  document.getElementById('chart-from').addEventListener(evt, () => { renderRecapCards(); onFiltersChanged(); });
+  document.getElementById('chart-to').addEventListener(evt, () => { renderRecapCards(); onFiltersChanged(); });
+});
 
 function onFiltersChanged() {
   renderRecapChart();
@@ -901,7 +904,7 @@ populateTabSelects()
   .then(refreshAll)
   .catch(showTopError);
 
-setInterval(refreshAll, AUTO_REFRESH_MS);
+// Refresh dilakukan manual lewat tombol Refresh (tidak ada auto-refresh berkala).
 </script>
 
 </body>
