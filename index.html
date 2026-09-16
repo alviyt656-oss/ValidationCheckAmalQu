@@ -220,17 +220,16 @@
         <div class="nav-item active" data-view="recap"><span class="nav-icon">◉</span> Rekapitulasi</div>
         <div class="nav-item" data-view="daily"><span class="nav-icon">▤</span> Pesanan</div>
         <div class="nav-item" data-view="upload"><span class="nav-icon">🚚</span> Pengiriman</div>
-        <div class="nav-item" data-view="produk"><span class="nav-icon">▣</span> Produk</div>
+        <div class="nav-item" data-view="komplain"><span class="nav-icon">✉</span> Komplain</div>
         <div class="nav-item" data-view="laporan"><span class="nav-icon">▦</span> Laporan</div>
         <div class="nav-item" data-view="pengaturan"><span class="nav-icon">⚙</span> Pengaturan</div>
       </nav>
     </div>
     <div class="sidebar-foot">
       <div class="user-chip">
-        <div class="user-avatar">WH</div>
+        <div class="user-avatar">WA</div>
         <div>
-          <div class="user-name">Warehouse</div>
-          <div class="user-role">Admin</div>
+          <div class="user-name">Warehouse Admin</div>
         </div>
       </div>
       <div class="copyright">© 2026 Builder: Alvi Hardiansyah</div>
@@ -239,10 +238,10 @@
 
   <main>
     <div class="top-header">
-      <div class="greeting">Selamat datang, <strong>Warehouse</strong> 👋</div>
+      <div class="greeting">Selamat datang, <strong>Warehouse Admin</strong> 👋</div>
       <div class="top-icons">
         <button class="icon-btn" title="Notifikasi" type="button">🔔<span class="notif-dot"></span></button>
-        <div class="avatar-chip">WH</div>
+        <div class="avatar-chip">WA</div>
       </div>
     </div>
     <div class="topbar">
@@ -400,17 +399,114 @@
       </div>
     </section>
 
-    <!-- ============ VIEW: PRODUK ============ -->
-    <section class="view" id="view-produk">
+    <!-- ============ VIEW: KOMPLAIN ============ -->
+    <section class="view" id="view-komplain">
       <div class="panel">
-        <div class="placeholder-box">
-          <div style="font-size:32px; margin-bottom:12px;">▣</div>
-          <p>Halaman Produk belum tersedia — nanti bisa dipakai untuk kelola daftar produk wakaf (Al Wakaf, Buku Super Tahsin, dll) di luar data pesanan.</p>
+        <h3>Input Komplain Baru</h3>
+        <p class="muted" style="margin-top:-8px; margin-bottom:16px;">
+          Cari ID Pesanan dulu — identitas donatur (nama, alamat) otomatis ditarik dari database, tidak perlu ketik manual.
+        </p>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:260px;">
+            <label for="komplain-search-id">Cari ID Pesanan *</label>
+            <input type="text" id="komplain-search-id" placeholder="Ketik minimal 3 karakter ID Pesanan...">
+          </div>
+          <button id="komplain-search-btn">Cari</button>
+        </div>
+        <div id="komplain-search-results" class="muted" style="margin-bottom:18px;"></div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="komplain-tanggal-lapor">Tanggal Pelaporan</label>
+            <input type="date" id="komplain-tanggal-lapor">
+          </div>
+          <div class="field">
+            <label for="komplain-kategori">Kategori Keluhan</label>
+            <select id="komplain-kategori">
+              <option>Minta Laporan</option>
+              <option>Paket Belum Sampai</option>
+              <option>Sertifikat/Doa Belum Diterima</option>
+              <option>Kesalahan Data</option>
+              <option>Lainnya</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:280px;">
+            <label for="komplain-kronologi">Rincian Kronologi</label>
+            <input type="text" id="komplain-kronologi" placeholder="Ringkasan keluhan donatur...">
+          </div>
+          <button class="primary" id="komplain-submit">Simpan Komplain</button>
+        </div>
+        <div id="komplain-result"></div>
+      </div>
+
+      <div class="panel" id="komplain-handling-panel" style="display:none;">
+        <h3>Tindak Lanjuti Komplain</h3>
+        <p class="muted" id="komplain-handling-context" style="margin-top:-8px; margin-bottom:16px;"></p>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:280px;">
+            <label for="handling-verifikasi">Hasil Verifikasi</label>
+            <input type="text" id="handling-verifikasi" placeholder="Hasil pengecekan tim...">
+          </div>
+          <div class="field" style="flex:1; min-width:280px;">
+            <label for="handling-tindak-lanjut">Tindak Lanjut/Solusi</label>
+            <input type="text" id="handling-tindak-lanjut" placeholder="mis. Kirim ulang foto sertifikat">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="handling-keterangan">Keterangan</label>
+            <input type="text" id="handling-keterangan">
+          </div>
+          <div class="field">
+            <label for="handling-status">Status Penanganan</label>
+            <select id="handling-status">
+              <option>Selesai</option>
+              <option>Pending</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="handling-pic">PIC Handling</label>
+            <input type="text" id="handling-pic" placeholder="Nama PIC">
+          </div>
+          <div class="field">
+            <label for="handling-tanggal">Tanggal Penanganan</label>
+            <input type="date" id="handling-tanggal">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:280px;">
+            <label for="handling-file">Lampiran bukti penyelesaian (PNG/PDF)</label>
+            <input type="file" id="handling-file" accept=".png,.jpg,.jpeg,.pdf">
+          </div>
+          <button id="handling-cancel">Batal</button>
+          <button class="primary" id="handling-submit">Simpan Penanganan</button>
+        </div>
+        <div id="handling-result"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Daftar Komplain</h3>
+        <div class="table-scroll">
+          <table id="komplain-table">
+            <thead>
+              <tr>
+                <th>Tanggal Lapor</th><th>Identitas Donatur</th><th>Kategori</th>
+                <th>Tindak Lanjut</th><th>Status</th><th>PIC</th><th>Lampiran</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="empty" id="komplain-empty">Belum ada data. Klik Refresh untuk memuat.</div>
         </div>
       </div>
     </section>
-
-    <!-- ============ VIEW: LAPORAN ============ -->
     <section class="view" id="view-laporan">
       <div class="panel">
         <div class="history-summary">
@@ -470,7 +566,7 @@ const VIEW_META = {
   recap: { title: 'Rekapitulasi', subtitle: 'Pantau performa distribusi dan pengiriman pesanan Anda.' },
   daily: { title: 'Pesanan', subtitle: 'Lihat detail pesanan per tanggal dan kategori.' },
   upload: { title: 'Pengiriman', subtitle: 'Validasi status pengiriman dari file harian.' },
-  produk: { title: 'Produk', subtitle: 'Kelola daftar produk wakaf.' },
+  komplain: { title: 'Komplain', subtitle: 'Input keluhan donatur dan tindak lanjut penyelesaiannya.' },
   laporan: { title: 'Laporan', subtitle: 'Riwayat penarikan data dan export.' },
   pengaturan: { title: 'Pengaturan', subtitle: 'Preferensi dan konfigurasi dashboard.' }
 };
@@ -488,6 +584,7 @@ function goToView(view) {
   document.getElementById('export-format').style.display = view === 'recap' ? 'inline-block' : 'none';
 
   if (view === 'laporan') renderLaporan();
+  if (view === 'komplain') loadKomplainList();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -621,7 +718,7 @@ function renderDashboardSummary() {
       <div class="card-top"><div class="card-icon">?</div></div>
       <div class="label">Tidak diketahui statusnya</div>
       <div class="value">${expedisi.toLocaleString('id-ID')}</div>
-      <div class="muted">Perlu tindaklanjut melalui menu Pengiriman</div>
+      <div class="muted">Perlu ditindaklanjuti lewat menu Pengiriman</div>
     </div>`;
 }
 
@@ -1186,6 +1283,186 @@ populateTabSelects()
   .catch(showTopError);
 
 // Refresh dilakukan manual lewat tombol Refresh (tidak ada auto-refresh berkala).
+
+/* ---------- Komplain ---------- */
+let selectedOrder = null; // { idPesanan, namaSertifikat, alamat, tab, resi }
+let lastKomplainList = [];
+
+document.getElementById('komplain-search-btn').addEventListener('click', () => {
+  const q = document.getElementById('komplain-search-id').value.trim();
+  const resultsEl = document.getElementById('komplain-search-results');
+  if (q.length < 3) {
+    resultsEl.textContent = 'Ketik minimal 3 karakter.';
+    return;
+  }
+  resultsEl.textContent = 'Mencari...';
+  api('searchOrders', { q }).then(data => {
+    const results = data.results || [];
+    if (!results.length) {
+      resultsEl.innerHTML = 'Tidak ditemukan.';
+      return;
+    }
+    resultsEl.innerHTML = results.map((r, i) => `
+      <div style="padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer;" data-idx="${i}" class="order-pick">
+        <b>${r.idPesanan}</b> — ${r.namaSertifikat || ''} · ${r.tanggal || ''} · tab ${r.tab}
+      </div>`).join('');
+    resultsEl.querySelectorAll('.order-pick').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedOrder = results[Number(el.dataset.idx)];
+        resultsEl.innerHTML = `<span style="color:var(--green);">
+          ✓ Ter-link: <b>${selectedOrder.idPesanan}</b> — ${selectedOrder.namaSertifikat || '(nama tidak ada di data)'}
+          ${selectedOrder.alamat ? ' · ' + selectedOrder.alamat : ''}
+        </span>`;
+      });
+    });
+  }).catch(err => { resultsEl.textContent = 'Gagal mencari: ' + err.message; });
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('komplain-submit').addEventListener('click', () => {
+  const resultEl = document.getElementById('komplain-result');
+  const btn = document.getElementById('komplain-submit');
+
+  if (!selectedOrder) {
+    resultEl.innerHTML = `<div class="result-box err">Cari dan pilih ID Pesanan dulu — identitas donatur ditarik otomatis dari situ.</div>`;
+    return;
+  }
+
+  // Identitas donatur dibangun otomatis dari data pesanan, tidak diketik manual
+  const identitasDonatur = [selectedOrder.namaSertifikat, selectedOrder.alamat, selectedOrder.idPesanan]
+    .filter(Boolean).join(' / ');
+
+  const data = {
+    tanggalPelaporan: document.getElementById('komplain-tanggal-lapor').value,
+    identitasDonatur,
+    kategori: document.getElementById('komplain-kategori').value,
+    kronologi: document.getElementById('komplain-kronologi').value,
+    idPesananRef: selectedOrder.idPesanan
+  };
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<div class="muted">Menyimpan...</div>`;
+
+  apiPost({ action: 'addComplaint', data })
+    .then(res => {
+      if (res.error) throw new Error(res.message);
+      resultEl.innerHTML = `<div class="result-box ok">Komplain berhasil disimpan (status: Pending). Lanjutkan penanganannya dari tabel di bawah.</div>`;
+      document.getElementById('komplain-tanggal-lapor').value = '';
+      document.getElementById('komplain-kronologi').value = '';
+      document.getElementById('komplain-search-id').value = '';
+      document.getElementById('komplain-search-results').innerHTML = '';
+      selectedOrder = null;
+      loadKomplainList();
+    })
+    .catch(err => { resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`; })
+    .finally(() => { btn.disabled = false; });
+});
+
+/* ---------- Tindak Lanjuti ---------- */
+function openHandlingPanel(rowNumber) {
+  const c = lastKomplainList.find(x => x.rowNumber === rowNumber);
+  if (!c) return;
+
+  document.getElementById('komplain-handling-panel').style.display = 'block';
+  document.getElementById('komplain-handling-panel').dataset.rowNumber = rowNumber;
+  document.getElementById('komplain-handling-context').innerHTML =
+    `Menangani komplain: <b>${c.IDENTITAS_DONATUR || '-'}</b>` +
+    (c.ID_PESANAN_REF ? ` · ID Pesanan: <b>${c.ID_PESANAN_REF}</b>` : '') +
+    (c.KATEGORI ? ` · Kategori: ${c.KATEGORI}` : '');
+
+  document.getElementById('handling-verifikasi').value = c.HASIL_VERIFIKASI || '';
+  document.getElementById('handling-tindak-lanjut').value = c.TINDAK_LANJUT || '';
+  document.getElementById('handling-keterangan').value = c.KETERANGAN || '';
+  document.getElementById('handling-status').value = 'Selesai';
+  document.getElementById('handling-pic').value = c.PIC || '';
+  document.getElementById('handling-tanggal').value = '';
+  document.getElementById('handling-file').value = '';
+  document.getElementById('handling-result').innerHTML = '';
+
+  document.getElementById('komplain-handling-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.getElementById('handling-cancel').addEventListener('click', () => {
+  document.getElementById('komplain-handling-panel').style.display = 'none';
+});
+
+document.getElementById('handling-submit').addEventListener('click', () => {
+  const panel = document.getElementById('komplain-handling-panel');
+  const rowNumber = panel.dataset.rowNumber;
+  const resultEl = document.getElementById('handling-result');
+  const btn = document.getElementById('handling-submit');
+
+  const data = {
+    hasilVerifikasi: document.getElementById('handling-verifikasi').value,
+    tindakLanjut: document.getElementById('handling-tindak-lanjut').value,
+    keterangan: document.getElementById('handling-keterangan').value,
+    status: document.getElementById('handling-status').value,
+    pic: document.getElementById('handling-pic').value,
+    tanggalPenanganan: document.getElementById('handling-tanggal').value
+  };
+
+  const fileInput = document.getElementById('handling-file');
+  const file = fileInput.files[0];
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<div class="muted">Menyimpan...</div>`;
+
+  apiPost({ action: 'updateComplaintHandling', rowNumber, data })
+    .then(res => {
+      if (res.error) throw new Error(res.message);
+      if (file) {
+        return fileToBase64(file).then(base64 =>
+          apiPost({ action: 'uploadAttachment', rowNumber, filename: file.name, mimeType: file.type, base64 })
+        );
+      }
+      return null;
+    })
+    .then(() => {
+      resultEl.innerHTML = `<div class="result-box ok">Penanganan berhasil disimpan.</div>`;
+      loadKomplainList();
+      setTimeout(() => { panel.style.display = 'none'; }, 800);
+    })
+    .catch(err => { resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`; })
+    .finally(() => { btn.disabled = false; });
+});
+
+function loadKomplainList() {
+  const tbody = document.querySelector('#komplain-table tbody');
+  const emptyEl = document.getElementById('komplain-empty');
+  emptyEl.textContent = 'Memuat...';
+  emptyEl.style.display = 'block';
+
+  api('complaints').then(data => {
+    if (data.error) throw new Error(data.message);
+    lastKomplainList = data.complaints || [];
+    tbody.innerHTML = lastKomplainList.map(c => `
+      <tr>
+        <td>${c.TANGGAL_PELAPORAN || ''}</td>
+        <td>${c.IDENTITAS_DONATUR || ''}</td>
+        <td>${c.KATEGORI || ''}</td>
+        <td>${c.TINDAK_LANJUT || ''}</td>
+        <td>${statusPill(c.STATUS)}</td>
+        <td>${c.PIC || ''}</td>
+        <td>${c.LAMPIRAN ? `<a href="${c.LAMPIRAN}" target="_blank">Lihat</a>` : ''}</td>
+        <td><button data-row="${c.rowNumber}" class="handling-btn">Tindak Lanjuti</button></td>
+      </tr>`).join('');
+    tbody.querySelectorAll('.handling-btn').forEach(btn => {
+      btn.addEventListener('click', () => openHandlingPanel(Number(btn.dataset.row)));
+    });
+    emptyEl.style.display = lastKomplainList.length ? 'none' : 'block';
+    emptyEl.textContent = lastKomplainList.length ? '' : 'Belum ada data komplain.';
+  }).catch(err => {
+    emptyEl.textContent = 'Gagal memuat: ' + err.message;
+  });
+}
 </script>
 
 </body>
