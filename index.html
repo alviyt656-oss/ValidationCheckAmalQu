@@ -124,7 +124,7 @@
   .field-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; align-items:end; }
   .field{ display:flex; flex-direction:column; gap:6px; }
   .field label{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
-  select, input[type=date], input[type=file], input[type=text]{
+  select, input[type=date], input[type=file], input[type=text], input[type=number]{
     font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border-strong);
     border-radius:var(--radius); background:#fff; color:var(--ink); transition:border-color .12s ease, box-shadow .12s ease;
   }
@@ -201,6 +201,18 @@
   .history-summary .stat{ font-size:13px; color:var(--ink-soft); }
   .history-summary .stat b{ display:block; font-family:'Source Serif 4', serif; font-size:22px; color:var(--green-dark); }
   .placeholder-box{ text-align:center; padding:60px 20px; color:var(--ink-faint); }
+
+  /* ---- Pengajuan ---- */
+  .item-row{ display:flex; gap:12px; align-items:end; margin-bottom:10px; flex-wrap:wrap; }
+  .item-row .field{ min-width:180px; }
+  .item-row .qty-field{ min-width:100px; }
+  .item-remove-btn{ color:var(--danger); border-color:var(--danger-soft); }
+  .item-remove-btn:hover{ border-color:var(--danger); color:var(--danger); }
+  .pill-list{ display:flex; flex-wrap:wrap; gap:6px; }
+  .item-pill{
+    display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px;
+    background:var(--panel-tint); border:1px solid var(--border); color:var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -220,6 +232,7 @@
         <div class="nav-item active" data-view="recap"><span class="nav-icon">◉</span> Rekapitulasi</div>
         <div class="nav-item" data-view="daily"><span class="nav-icon">▤</span> Pesanan</div>
         <div class="nav-item" data-view="upload"><span class="nav-icon">🚚</span> Pengiriman</div>
+        <div class="nav-item" data-view="pengajuan"><span class="nav-icon">📤</span> Pengajuan</div>
         <div class="nav-item" data-view="komplain"><span class="nav-icon">✉</span> Komplain</div>
         <div class="nav-item" data-view="laporan"><span class="nav-icon">▦</span> Laporan</div>
         <div class="nav-item" data-view="pengaturan"><span class="nav-icon">⚙</span> Pengaturan</div>
@@ -266,7 +279,7 @@
       <div id="dashboard-cards" class="cards"></div>
       <div class="panel">
         <h3>Ringkasan cepat</h3>
-        <p class="muted">Untuk lihat rincian lengkap per bulan/kategori, buka menu <strong>Rekapitulasi</strong>. Untuk cek pesanan satu-satu, buka menu <strong>Pesanan</strong>. Untuk proses validasi status pengiriman, buka menu <strong>Pengiriman</strong>.</p>
+        <p class="muted">Untuk lihat rincian lengkap per bulan/kategori, buka menu <strong>Rekapitulasi</strong>. Untuk cek pesanan satu-satu, buka menu <strong>Pesanan</strong>. Untuk proses validasi status pengiriman, buka menu <strong>Pengiriman</strong>. Untuk ajukan pengeluaran barang, buka menu <strong>Pengajuan</strong>.</p>
       </div>
     </section>
 
@@ -293,6 +306,13 @@
         </div>
       </div>
       <div id="recap-cards" class="cards"></div>
+
+      <div class="panel">
+        <h3>Ketersediaan stok (Total Stock)</h3>
+        <p class="muted" style="margin-top:-8px;">Total Stock = Paket dengan status terkirim − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
+        <div id="stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
+      </div>
+
       <div class="panel">
         <div class="field-row" style="margin-bottom:16px; align-items:center;">
           <div class="card-icon" style="margin-right:4px;">📊</div>
@@ -396,6 +416,61 @@
           <button class="primary" id="upload-run">Proses</button>
         </div>
         <div id="upload-result"></div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: PENGAJUAN ============ -->
+    <section class="view" id="view-pengajuan">
+      <div class="panel">
+        <h3>Ajukan Pengeluaran Barang</h3>
+        <p class="muted" style="margin-top:-8px; margin-bottom:16px;">
+          Satu pengajuan boleh berisi lebih dari satu barang (mis. Al Wakaf dan Buku Super Tahsin sekaligus).
+        </p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="pengajuan-tanggal">Tanggal</label>
+            <input type="date" id="pengajuan-tanggal">
+          </div>
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="pengajuan-pemohon">Yang Mengajukan</label>
+            <input type="text" id="pengajuan-pemohon" placeholder="Nama pemohon...">
+          </div>
+          <div class="field" style="flex:1; min-width:260px;">
+            <label for="pengajuan-alamat">Alamat Penyaluran</label>
+            <input type="text" id="pengajuan-alamat" placeholder="Alamat tujuan penyaluran...">
+          </div>
+        </div>
+
+        <div id="pengajuan-items"></div>
+        <div class="field-row" style="margin-bottom:18px;">
+          <button id="pengajuan-add-item">+ Tambah Barang</button>
+        </div>
+
+        <div class="field-row">
+          <div class="field" style="flex:1; min-width:280px;">
+            <label for="pengajuan-keterangan">Keterangan (opsional)</label>
+            <input type="text" id="pengajuan-keterangan" placeholder="Catatan tambahan...">
+          </div>
+          <button class="primary" id="pengajuan-submit">Simpan Pengajuan</button>
+        </div>
+        <div id="pengajuan-result"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Daftar Pengajuan</h3>
+        <div class="table-scroll">
+          <table id="pengajuan-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th><th>Yang Mengajukan</th><th>Alamat Penyaluran</th>
+                <th>Barang &amp; Qty</th><th>Total Qty</th><th>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="empty" id="pengajuan-empty">Belum ada data. Klik Refresh untuk memuat.</div>
+        </div>
       </div>
     </section>
 
@@ -544,7 +619,9 @@
 /* ============================================================
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfw2aabdnS6kr223j02e5dmRgKVJolWB9WVUE6cJWzlRHxijMol3HM5i6IA7tdbFk8/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw5iyPzPqbxHCuyYFEbBZBKzsAz1GrLAldku--Eh-cPXbQXp2SL5QT_4oiG9LiNsR-f/exec';
+
+const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 
 let monthlyTabs = [];
 let chartInstance = null;
@@ -566,6 +643,7 @@ const VIEW_META = {
   recap: { title: 'Rekapitulasi', subtitle: 'Pantau performa distribusi dan pengiriman pesanan Anda.' },
   daily: { title: 'Pesanan', subtitle: 'Lihat detail pesanan per tanggal dan kategori.' },
   upload: { title: 'Pengiriman', subtitle: 'Validasi status pengiriman dari file harian.' },
+  pengajuan: { title: 'Pengajuan', subtitle: 'Ajukan dan pantau permintaan pengeluaran barang.' },
   komplain: { title: 'Komplain', subtitle: 'Input keluhan donatur dan tindak lanjut penyelesaiannya.' },
   laporan: { title: 'Laporan', subtitle: 'Riwayat penarikan data dan export.' },
   pengaturan: { title: 'Pengaturan', subtitle: 'Preferensi dan konfigurasi dashboard.' }
@@ -585,6 +663,7 @@ function goToView(view) {
 
   if (view === 'laporan') renderLaporan();
   if (view === 'komplain') loadKomplainList();
+  if (view === 'pengajuan') loadPengajuanList();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -678,6 +757,38 @@ function renderRecap(data) {
   onFiltersChanged();
   renderCompareChart();
   renderDashboardSummary();
+  renderStockCards();
+}
+
+/* ---------- Ketersediaan stok (Total Stock) ---------- */
+function renderStockCards() {
+  const cardsEl = document.getElementById('stock-cards');
+  if (!cardsEl) return;
+
+  const summary = (lastRecapData && lastRecapData.stockSummary) || {};
+  const categories = Object.keys(summary);
+
+  if (!categories.length) {
+    cardsEl.innerHTML = '<div class="muted">Belum ada data stok. Refresh dulu, atau tambahkan pengajuan.</div>';
+    return;
+  }
+
+  cardsEl.innerHTML = categories.map((cat, i) => {
+    const s = summary[cat] || { terkirim: 0, keluar: 0, stock: 0 };
+    const isGold = i === 1;
+    const warn = s.stock < 0;
+    return `
+      <div class="card${isGold ? ' gold' : ''}">
+        <div class="card-top"><div class="card-icon">${cat.toLowerCase().includes('tahsin') ? '📖' : '📦'}</div></div>
+        <div class="label">Total Stock — ${cat}</div>
+        <div class="value">${s.stock.toLocaleString('id-ID')}</div>
+        <div class="stat-row">
+          <span>Terkirim: <b>${s.terkirim.toLocaleString('id-ID')}</b></span>
+          <span>Keluar (Pengajuan): <b>${s.keluar.toLocaleString('id-ID')}</b></span>
+        </div>
+        ${warn ? '<div class="balance-line warn">⚠ Stok minus — cek data pengajuan/pengiriman</div>' : ''}
+      </div>`;
+  }).join('');
 }
 
 function renderDashboardSummary() {
@@ -1214,6 +1325,133 @@ document.getElementById('upload-run').addEventListener('click', () => {
     })
     .finally(() => { btn.disabled = false; });
 });
+
+/* ---------- Pengajuan ---------- */
+let pengajuanItemCounter = 0;
+let lastPengajuanList = [];
+
+function addPengajuanItemRow(prefill) {
+  pengajuanItemCounter++;
+  const id = pengajuanItemCounter;
+  const wrap = document.createElement('div');
+  wrap.className = 'item-row';
+  wrap.dataset.itemId = id;
+  wrap.innerHTML = `
+    <div class="field">
+      <label>Barang</label>
+      <select class="item-kategori">
+        ${PENGAJUAN_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field qty-field">
+      <label>Qty</label>
+      <input type="number" class="item-qty" min="1" placeholder="0">
+    </div>
+    <button type="button" class="item-remove-btn" data-remove="${id}">Hapus</button>`;
+  document.getElementById('pengajuan-items').appendChild(wrap);
+  if (prefill) {
+    if (prefill.kategori) wrap.querySelector('.item-kategori').value = prefill.kategori;
+    if (prefill.qty) wrap.querySelector('.item-qty').value = prefill.qty;
+  }
+  wrap.querySelector('[data-remove]').addEventListener('click', () => {
+    // Selalu sisakan minimal 1 baris barang
+    if (document.querySelectorAll('#pengajuan-items .item-row').length > 1) {
+      wrap.remove();
+    }
+  });
+}
+
+document.getElementById('pengajuan-add-item').addEventListener('click', () => addPengajuanItemRow());
+
+function resetPengajuanForm() {
+  document.getElementById('pengajuan-tanggal').value = '';
+  document.getElementById('pengajuan-pemohon').value = '';
+  document.getElementById('pengajuan-alamat').value = '';
+  document.getElementById('pengajuan-keterangan').value = '';
+  document.getElementById('pengajuan-items').innerHTML = '';
+  addPengajuanItemRow();
+}
+
+function collectPengajuanItems() {
+  const rows = document.querySelectorAll('#pengajuan-items .item-row');
+  const items = [];
+  rows.forEach(row => {
+    const kategori = row.querySelector('.item-kategori').value;
+    const qty = Number(row.querySelector('.item-qty').value) || 0;
+    if (kategori && qty > 0) items.push({ kategori, qty });
+  });
+  return items;
+}
+
+document.getElementById('pengajuan-submit').addEventListener('click', () => {
+  const resultEl = document.getElementById('pengajuan-result');
+  const btn = document.getElementById('pengajuan-submit');
+
+  const tanggal = document.getElementById('pengajuan-tanggal').value;
+  const pemohon = document.getElementById('pengajuan-pemohon').value.trim();
+  const alamat = document.getElementById('pengajuan-alamat').value.trim();
+  const keterangan = document.getElementById('pengajuan-keterangan').value.trim();
+  const items = collectPengajuanItems();
+
+  if (!tanggal || !pemohon || !alamat) {
+    resultEl.innerHTML = `<div class="result-box err">Lengkapi tanggal, yang mengajukan, dan alamat penyaluran.</div>`;
+    return;
+  }
+  if (!items.length) {
+    resultEl.innerHTML = `<div class="result-box err">Isi minimal 1 barang dengan qty lebih dari 0.</div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<div class="muted">Menyimpan...</div>`;
+
+  apiPost({ action: 'addPengajuan', data: { tanggal, pemohon, alamat, keterangan, items } })
+    .then(res => {
+      if (res.error) throw new Error(res.message);
+      resultEl.innerHTML = `<div class="result-box ok">Pengajuan berhasil disimpan (${items.length} barang).</div>`;
+      resetPengajuanForm();
+      loadPengajuanList();
+      // Total Stock di Rekapitulasi ikut berubah, refresh datanya juga
+      loadRecap().catch(() => {});
+    })
+    .catch(err => { resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`; })
+    .finally(() => { btn.disabled = false; });
+});
+
+function loadPengajuanList() {
+  const tbody = document.querySelector('#pengajuan-table tbody');
+  const emptyEl = document.getElementById('pengajuan-empty');
+  emptyEl.textContent = 'Memuat...';
+  emptyEl.style.display = 'block';
+
+  api('pengajuan').then(data => {
+    if (data.error) throw new Error(data.message);
+    lastPengajuanList = data.pengajuan || [];
+    tbody.innerHTML = lastPengajuanList.map(p => {
+      const items = p.items || [];
+      const totalQty = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
+      const pillsHtml = `<div class="pill-list">${items.map(it =>
+        `<span class="item-pill">${it.kategori}: ${Number(it.qty).toLocaleString('id-ID')}</span>`
+      ).join('')}</div>`;
+      return `
+        <tr>
+          <td>${p.tanggal || ''}</td>
+          <td>${p.pemohon || ''}</td>
+          <td>${p.alamat || ''}</td>
+          <td>${pillsHtml}</td>
+          <td>${totalQty.toLocaleString('id-ID')}</td>
+          <td>${p.keterangan || ''}</td>
+        </tr>`;
+    }).join('');
+    emptyEl.style.display = lastPengajuanList.length ? 'none' : 'block';
+    emptyEl.textContent = lastPengajuanList.length ? '' : 'Belum ada data pengajuan.';
+  }).catch(err => {
+    emptyEl.textContent = 'Gagal memuat: ' + err.message;
+  });
+}
+
+// Sediakan 1 baris barang secara default saat halaman dimuat
+addPengajuanItemRow();
 
 /* ---------- Riwayat (Laporan) ---------- */
 const HISTORY_KEY = 'wakaf_dashboard_history';
