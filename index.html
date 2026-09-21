@@ -226,6 +226,15 @@
     background:var(--panel-tint); margin-bottom:16px;
   }
   .attachment-box .attachment-name{ font-size:13px; color:var(--ink); }
+
+  /* ---- Tombol download lampiran per komplain ---- */
+  .wrap-cell{ white-space:normal; min-width:220px; max-width:320px; }
+  .download-btn{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; font-size:12px;
+    color:var(--green); border-color:var(--green); font-weight:600;
+  }
+  .download-btn:hover{ background:var(--green-soft); }
+  .no-attachment{ color:var(--ink-faint); font-size:12px; }
 </style>
 </head>
 <body>
@@ -634,7 +643,7 @@
 /* ============================================================
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxZQSlQ2oqioYLXgxV07EUWevd1R0Q-cmcWP2YBpCpvY6GwUobyoTg7__mPmh4QRY2/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw0VnYOo03fo5UFm1z6C_rk6q1XaZELwplCK6OuQ8vwnMSww04Gdy1oQN-b3ExSGHRM/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 
@@ -1538,6 +1547,57 @@ populateTabSelects()
 let selectedOrder = null; // { idPesanan, namaSertifikat, alamat, tab, resi }
 let lastKomplainList = [];
 
+function escapeHtml(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function base64ToBlob(base64, mimeType) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+}
+
+// Download lampiran milik SATU komplain (berdasarkan nomor baris di sheet).
+// File diambil lewat backend (action "downloadAttachment") lalu disimpan
+// dengan nama file aslinya.
+function downloadKomplainAttachment(rowNumber, btn) {
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Mengunduh…';
+
+  api('downloadAttachment', { rowNumber })
+    .then(res => {
+      if (res.error) throw new Error(res.message);
+
+      // File terlalu besar untuk dikirim lewat Apps Script -> buka link Drive langsung
+      if (res.tooLarge) {
+        window.open(res.url, '_blank', 'noopener');
+        return;
+      }
+      if (!res.base64) {
+        throw new Error('Backend belum di-deploy versi terbaru (Manage deployments → New version).');
+      }
+
+      const blob = base64ToBlob(res.base64, res.mimeType);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.filename || 'lampiran';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .catch(err => alert('Gagal mengunduh lampiran: ' + err.message))
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    });
+}
+
 document.getElementById('komplain-search-btn').addEventListener('click', () => {
   const q = document.getElementById('komplain-search-id').value.trim();
   const resultsEl = document.getElementById('komplain-search-results');
@@ -1624,9 +1684,9 @@ function openHandlingPanel(rowNumber) {
   document.getElementById('komplain-handling-panel').style.display = 'block';
   document.getElementById('komplain-handling-panel').dataset.rowNumber = rowNumber;
   document.getElementById('komplain-handling-context').innerHTML =
-    `Menangani komplain: <b>${c.IDENTITAS_DONATUR || '-'}</b>` +
-    (c.ID_PESANAN_REF ? ` · ID Pesanan: <b>${c.ID_PESANAN_REF}</b>` : '') +
-    (c.KATEGORI ? ` · Kategori: ${c.KATEGORI}` : '');
+    `Menangani komplain: <b>${escapeHtml(c.IDENTITAS_DONATUR) || '-'}</b>` +
+    (c.ID_PESANAN_REF ? ` · ID Pesanan: <b>${escapeHtml(c.ID_PESANAN_REF)}</b>` : '') +
+    (c.KATEGORI ? ` · Kategori: ${escapeHtml(c.KATEGORI)}` : '');
 
   // Kalau komplain ini sudah punya lampiran sebelumnya (dari penanganan
   // yang lalu), tampilkan supaya bisa didownload/dicek dulu tanpa harus
@@ -1637,9 +1697,12 @@ function openHandlingPanel(rowNumber) {
     const namaFile = c.LAMPIRAN_NAMA || 'Lampiran';
     existingEl.innerHTML = `
       <div class="attachment-box">
-        <span class="attachment-name">📎 Lampiran saat ini: <b>${namaFile}</b></span>
-        <a class="download-link" href="${c.LAMPIRAN}" target="_blank" rel="noopener">⬇ Unduh</a>
+        <span class="attachment-name">📎 Lampiran saat ini: <b>${escapeHtml(namaFile)}</b></span>
+        <button type="button" class="download-btn" id="handling-download-btn">⬇ Unduh</button>
       </div>`;
+    document.getElementById('handling-download-btn').addEventListener('click', (ev) => {
+      downloadKomplainAttachment(rowNumber, ev.currentTarget);
+    });
   } else {
     existingEl.innerHTML = '';
   }
@@ -1691,7 +1754,8 @@ document.getElementById('handling-submit').addEventListener('click', () => {
       }
       return null;
     })
-    .then(() => {
+    .then(uploadRes => {
+      if (uploadRes && uploadRes.error) throw new Error(uploadRes.message);
       resultEl.innerHTML = `<div class="result-box ok">Penanganan berhasil disimpan.</div>`;
       loadKomplainList();
       setTimeout(() => { panel.style.display = 'none'; }, 800);
@@ -1709,23 +1773,33 @@ function loadKomplainList() {
   api('complaints').then(data => {
     if (data.error) throw new Error(data.message);
     lastKomplainList = data.complaints || [];
+
     tbody.innerHTML = lastKomplainList.map(c => {
-      const namaFile = c.LAMPIRAN_NAMA ? ` title="${c.LAMPIRAN_NAMA}"` : '';
+      const attachmentCell = c.LAMPIRAN
+        ? `<button type="button" class="download-btn" data-row="${c.rowNumber}"
+             title="${escapeHtml(c.LAMPIRAN_NAMA || 'Lampiran')}">⬇ Unduh</button>`
+        : `<span class="no-attachment">Belum ada</span>`;
+
       return `
       <tr>
-        <td>${c.TANGGAL_PELAPORAN || ''}</td>
-        <td>${c.IDENTITAS_DONATUR || ''}</td>
-        <td>${c.KATEGORI || ''}</td>
-        <td>${c.TINDAK_LANJUT || ''}</td>
+        <td>${escapeHtml(c.TANGGAL_PELAPORAN)}</td>
+        <td class="wrap-cell">${escapeHtml(c.IDENTITAS_DONATUR)}</td>
+        <td>${escapeHtml(c.KATEGORI)}</td>
+        <td class="wrap-cell">${escapeHtml(c.TINDAK_LANJUT)}</td>
         <td>${statusPill(c.STATUS)}</td>
-        <td>${c.PIC || ''}</td>
-        <td>${c.LAMPIRAN ? `<a class="download-link" href="${c.LAMPIRAN}" target="_blank" rel="noopener"${namaFile}>⬇ Unduh</a>` : ''}</td>
+        <td>${escapeHtml(c.PIC)}</td>
+        <td>${attachmentCell}</td>
         <td><button data-row="${c.rowNumber}" class="handling-btn">Tindak Lanjuti</button></td>
       </tr>`;
     }).join('');
+
     tbody.querySelectorAll('.handling-btn').forEach(btn => {
       btn.addEventListener('click', () => openHandlingPanel(Number(btn.dataset.row)));
     });
+    tbody.querySelectorAll('.download-btn').forEach(btn => {
+      btn.addEventListener('click', () => downloadKomplainAttachment(Number(btn.dataset.row), btn));
+    });
+
     emptyEl.style.display = lastKomplainList.length ? 'none' : 'block';
     emptyEl.textContent = lastKomplainList.length ? '' : 'Belum ada data komplain.';
   }).catch(err => {
