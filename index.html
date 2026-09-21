@@ -213,6 +213,19 @@
     display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px;
     background:var(--panel-tint); border:1px solid var(--border); color:var(--ink);
   }
+
+  /* ---- Lampiran (download) ---- */
+  .download-link{
+    display:inline-flex; align-items:center; gap:6px; color:var(--green); font-weight:600;
+    text-decoration:none; font-size:12px;
+  }
+  .download-link:hover{ color:var(--green-dark); text-decoration:underline; }
+  .attachment-box{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius);
+    background:var(--panel-tint); margin-bottom:16px;
+  }
+  .attachment-box .attachment-name{ font-size:13px; color:var(--ink); }
 </style>
 </head>
 <body>
@@ -522,6 +535,8 @@
         <h3>Tindak Lanjuti Komplain</h3>
         <p class="muted" id="komplain-handling-context" style="margin-top:-8px; margin-bottom:16px;"></p>
 
+        <div id="komplain-handling-existing-attachment"></div>
+
         <div class="field-row">
           <div class="field" style="flex:1; min-width:280px;">
             <label for="handling-verifikasi">Hasil Verifikasi</label>
@@ -619,7 +634,7 @@
 /* ============================================================
    KONFIGURASI — ganti dengan URL deployment Apps Script kamu
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw5iyPzPqbxHCuyYFEbBZBKzsAz1GrLAldku--Eh-cPXbQXp2SL5QT_4oiG9LiNsR-f/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxZQSlQ2oqioYLXgxV07EUWevd1R0Q-cmcWP2YBpCpvY6GwUobyoTg7__mPmh4QRY2/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 
@@ -1450,9 +1465,6 @@ function loadPengajuanList() {
   });
 }
 
-// Sediakan 1 baris barang secara default saat halaman dimuat
-addPengajuanItemRow();
-
 /* ---------- Riwayat (Laporan) ---------- */
 const HISTORY_KEY = 'wakaf_dashboard_history';
 
@@ -1616,6 +1628,22 @@ function openHandlingPanel(rowNumber) {
     (c.ID_PESANAN_REF ? ` · ID Pesanan: <b>${c.ID_PESANAN_REF}</b>` : '') +
     (c.KATEGORI ? ` · Kategori: ${c.KATEGORI}` : '');
 
+  // Kalau komplain ini sudah punya lampiran sebelumnya (dari penanganan
+  // yang lalu), tampilkan supaya bisa didownload/dicek dulu tanpa harus
+  // upload ulang. Nama file diambil dari LAMPIRAN_NAMA kalau ada,
+  // fallback ke "Lampiran" saja kalau belum ada (data lama).
+  const existingEl = document.getElementById('komplain-handling-existing-attachment');
+  if (c.LAMPIRAN) {
+    const namaFile = c.LAMPIRAN_NAMA || 'Lampiran';
+    existingEl.innerHTML = `
+      <div class="attachment-box">
+        <span class="attachment-name">📎 Lampiran saat ini: <b>${namaFile}</b></span>
+        <a class="download-link" href="${c.LAMPIRAN}" target="_blank" rel="noopener">⬇ Unduh</a>
+      </div>`;
+  } else {
+    existingEl.innerHTML = '';
+  }
+
   document.getElementById('handling-verifikasi').value = c.HASIL_VERIFIKASI || '';
   document.getElementById('handling-tindak-lanjut').value = c.TINDAK_LANJUT || '';
   document.getElementById('handling-keterangan').value = c.KETERANGAN || '';
@@ -1681,7 +1709,9 @@ function loadKomplainList() {
   api('complaints').then(data => {
     if (data.error) throw new Error(data.message);
     lastKomplainList = data.complaints || [];
-    tbody.innerHTML = lastKomplainList.map(c => `
+    tbody.innerHTML = lastKomplainList.map(c => {
+      const namaFile = c.LAMPIRAN_NAMA ? ` title="${c.LAMPIRAN_NAMA}"` : '';
+      return `
       <tr>
         <td>${c.TANGGAL_PELAPORAN || ''}</td>
         <td>${c.IDENTITAS_DONATUR || ''}</td>
@@ -1689,9 +1719,10 @@ function loadKomplainList() {
         <td>${c.TINDAK_LANJUT || ''}</td>
         <td>${statusPill(c.STATUS)}</td>
         <td>${c.PIC || ''}</td>
-        <td>${c.LAMPIRAN ? `<a href="${c.LAMPIRAN}" target="_blank">Lihat</a>` : ''}</td>
+        <td>${c.LAMPIRAN ? `<a class="download-link" href="${c.LAMPIRAN}" target="_blank" rel="noopener"${namaFile}>⬇ Unduh</a>` : ''}</td>
         <td><button data-row="${c.rowNumber}" class="handling-btn">Tindak Lanjuti</button></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     tbody.querySelectorAll('.handling-btn').forEach(btn => {
       btn.addEventListener('click', () => openHandlingPanel(Number(btn.dataset.row)));
     });
