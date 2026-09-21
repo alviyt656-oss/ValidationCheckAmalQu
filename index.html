@@ -597,7 +597,8 @@
             <thead>
               <tr>
                 <th>Tanggal Lapor</th><th>Identitas Donatur</th><th>Kategori</th>
-                <th>Tindak Lanjut</th><th>Status</th><th>PIC</th><th>Lampiran</th><th>Aksi</th>
+                <th>Kronologi</th><th>Hasil Verifikasi</th><th>Tindak Lanjut</th><th>Keterangan</th>
+                <th>Status</th><th>PIC</th><th>Lampiran</th><th>Aksi</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -1785,7 +1786,10 @@ function loadKomplainList() {
         <td>${escapeHtml(c.TANGGAL_PELAPORAN)}</td>
         <td class="wrap-cell">${escapeHtml(c.IDENTITAS_DONATUR)}</td>
         <td>${escapeHtml(c.KATEGORI)}</td>
+        <td class="wrap-cell">${escapeHtml(c.KRONOLOGI)}</td>
+        <td class="wrap-cell">${escapeHtml(c.HASIL_VERIFIKASI)}</td>
         <td class="wrap-cell">${escapeHtml(c.TINDAK_LANJUT)}</td>
+        <td class="wrap-cell">${escapeHtml(c.KETERANGAN)}</td>
         <td>${statusPill(c.STATUS)}</td>
         <td>${escapeHtml(c.PIC)}</td>
         <td>${attachmentCell}</td>
