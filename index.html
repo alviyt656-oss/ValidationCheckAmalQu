@@ -235,6 +235,36 @@
   }
   .download-btn:hover{ background:var(--green-soft); }
   .no-attachment{ color:var(--ink-faint); font-size:12px; }
+
+  /* ---- Tabel Daftar Komplain: pas selebar container (tanpa geser samping) ---- */
+  #komplain-table{ table-layout:fixed; width:100%; }
+  #komplain-table th,
+  #komplain-table td{
+    white-space:normal; overflow-wrap:anywhere; vertical-align:top;
+    padding:10px 8px; font-size:12.5px;
+  }
+  #komplain-table th{ font-size:10.5px; letter-spacing:.02em; }
+  #komplain-table .wrap-cell{ min-width:0; max-width:none; }
+  #komplain-table .status-pill{ padding:3px 8px; font-size:11px; }
+  #komplain-table button{
+    width:100%; padding:6px 8px; font-size:12px; white-space:normal; line-height:1.3;
+  }
+  /* Lebar kolom (total 100%) */
+  #komplain-table th:nth-child(1){ width:7%; }   /* Tanggal Lapor */
+  #komplain-table th:nth-child(2){ width:12%; }  /* Identitas Donatur */
+  #komplain-table th:nth-child(3){ width:8%; }   /* Kategori */
+  #komplain-table th:nth-child(4){ width:15%; }  /* Kronologi */
+  #komplain-table th:nth-child(5){ width:10%; }  /* Hasil Verifikasi */
+  #komplain-table th:nth-child(6){ width:10%; }  /* Tindak Lanjut */
+  #komplain-table th:nth-child(7){ width:8%; }   /* Keterangan */
+  #komplain-table th:nth-child(8){ width:7%; }   /* Status */
+  #komplain-table th:nth-child(9){ width:6%; }   /* PIC */
+  #komplain-table th:nth-child(10){ width:8%; }  /* Lampiran */
+  #komplain-table th:nth-child(11){ width:9%; }  /* Aksi */
+  /* Layar sempit: kembali ke geser samping supaya tetap terbaca */
+  @media (max-width: 1000px){
+    #komplain-table{ table-layout:auto; min-width:900px; }
+  }
 </style>
 </head>
 <body>
