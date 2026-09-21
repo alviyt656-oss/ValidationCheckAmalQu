@@ -265,6 +265,40 @@
   @media (max-width: 1000px){
     #komplain-table{ table-layout:auto; min-width:900px; }
   }
+
+  /* ---- Notifikasi (lonceng) ---- */
+  .notif-wrap{ position:relative; }
+  .notif-badge{
+    position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 5px;
+    border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .icon-btn.ringing{ animation:bell-shake .9s ease; }
+  @keyframes bell-shake{
+    0%,100%{ transform:rotate(0); }
+    15%{ transform:rotate(16deg); } 30%{ transform:rotate(-14deg); }
+    45%{ transform:rotate(10deg); } 60%{ transform:rotate(-7deg); } 75%{ transform:rotate(3deg); }
+  }
+  .notif-panel{
+    position:absolute; right:0; top:46px; width:340px; max-width:90vw; z-index:50;
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow-md);
+  }
+  .notif-head{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    padding:12px 14px; border-bottom:1px solid var(--border);
+  }
+  .notif-head-actions{ display:flex; gap:6px; }
+  .notif-mini{ padding:4px 8px; font-size:11px; }
+  .notif-list{ max-height:360px; overflow-y:auto; }
+  .notif-item{ display:flex; gap:10px; padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .notif-item:hover{ background:var(--green-soft); }
+  .notif-item.unread{ background:var(--gold-soft); }
+  .notif-item .notif-icon{ font-size:16px; line-height:1.4; }
+  .notif-item .notif-title{ font-weight:600; font-size:13px; }
+  .notif-item .notif-detail{ font-size:12px; color:var(--ink-soft); overflow-wrap:anywhere; }
+  .notif-item .notif-time{ font-size:11px; color:var(--ink-faint); margin-top:2px; }
+  .notif-empty{ padding:24px 14px; text-align:center; color:var(--ink-faint); font-size:12px; }
 </style>
 </head>
 <body>
@@ -305,7 +339,19 @@
     <div class="top-header">
       <div class="greeting">Selamat datang, <strong>Warehouse Admin</strong> 👋</div>
       <div class="top-icons">
-        <button class="icon-btn" title="Notifikasi" type="button">🔔<span class="notif-dot"></span></button>
+        <div class="notif-wrap">
+          <button class="icon-btn" id="notif-btn" title="Notifikasi" type="button">🔔<span class="notif-badge" id="notif-badge" style="display:none;">0</span></button>
+          <div class="notif-panel" id="notif-panel" style="display:none;">
+            <div class="notif-head">
+              <b>Notifikasi</b>
+              <div class="notif-head-actions">
+                <button type="button" class="notif-mini" id="notif-sound-toggle">🔊 Suara: On</button>
+                <button type="button" class="notif-mini" id="notif-mark-all">Tandai dibaca</button>
+              </div>
+            </div>
+            <div class="notif-list" id="notif-list"></div>
+          </div>
+        </div>
         <div class="avatar-chip">WA</div>
       </div>
     </div>
@@ -1466,6 +1512,7 @@ document.getElementById('pengajuan-submit').addEventListener('click', () => {
       resultEl.innerHTML = `<div class="result-box ok">Pengajuan berhasil disimpan (${items.length} barang).</div>`;
       resetPengajuanForm();
       loadPengajuanList();
+      checkNotifications({ silent: true });
       // Total Stock di Rekapitulasi ikut berubah, refresh datanya juga
       loadRecap().catch(() => {});
     })
@@ -1702,6 +1749,7 @@ document.getElementById('komplain-submit').addEventListener('click', () => {
       document.getElementById('komplain-search-results').innerHTML = '';
       selectedOrder = null;
       loadKomplainList();
+      checkNotifications({ silent: true });
     })
     .catch(err => { resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`; })
     .finally(() => { btn.disabled = false; });
@@ -1840,6 +1888,232 @@ function loadKomplainList() {
     emptyEl.textContent = 'Gagal memuat: ' + err.message;
   });
 }
+
+/* ---------- Notifikasi: bunyi "ring" untuk komplain / pengajuan baru ---------- */
+// Cara kerja: dashboard mengecek data komplain & pengajuan tiap 30 detik.
+// Item yang belum pernah "dilihat" browser ini dianggap baru -> bunyi ring
+// SEKALI, lonceng bergoyang, badge merah muncul. Setelah itu item tsb tidak
+// akan membunyikan notifikasi lagi. Saat pertama kali dashboard dibuka di
+// sebuah browser, semua data yang sudah ada dianggap sudah dilihat (tanpa bunyi).
+const NOTIF_SEEN_KEY = 'wakaf_notif_seen';
+const NOTIF_ITEMS_KEY = 'wakaf_notif_items';
+const NOTIF_SOUND_KEY = 'wakaf_notif_sound';
+const NOTIF_POLL_MS = 30000;
+const BASE_TITLE = document.title;
+
+let audioCtx = null;
+let notifChecking = false;
+let notifPendingSilent = false;
+
+function lsGet(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key));
+    return v === null || v === undefined ? fallback : v;
+  } catch (e) { return fallback; }
+}
+
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* abaikan */ }
+}
+
+/* --- Suara (dibuat lewat Web Audio API, tanpa file audio) --- */
+function getAudioCtx() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+  }
+  return audioCtx;
+}
+
+// Browser memblokir suara otomatis sampai pengguna berinteraksi dengan halaman.
+// Klik/ketik apa saja sekali sudah cukup untuk "membuka kunci" suaranya.
+['click', 'keydown', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }, { capture: true, passive: true });
+});
+
+function playRing() {
+  if (!lsGet(NOTIF_SOUND_KEY, true)) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const now = ctx.currentTime;
+  // "ring-ring": dua dentingan bel, masing-masing dua nada (dasar + harmonik)
+  [0, 0.5].forEach(offset => {
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t0 = now + offset;
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(i === 0 ? 0.35 : 0.15, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.47);
+    });
+  });
+}
+
+function shakeBell() {
+  const b = document.getElementById('notif-btn');
+  b.classList.remove('ringing');
+  void b.offsetWidth; // restart animasi
+  b.classList.add('ringing');
+}
+
+/* --- Identitas item (supaya tiap komplain/pengajuan hanya berbunyi sekali) --- */
+function complaintKey(c) {
+  return 'K|' + [c.ID_PESANAN_REF, c.IDENTITAS_DONATUR, c.KATEGORI, c.TANGGAL_PELAPORAN].join('|');
+}
+function pengajuanKey(p) {
+  return 'P|' + p.idPengajuan;
+}
+
+/* --- Cek data baru --- */
+function checkNotifications(opts) {
+  opts = opts || {};
+
+  if (notifChecking) {
+    if (opts.silent) notifPendingSilent = true;
+    return Promise.resolve();
+  }
+  notifChecking = true;
+
+  return Promise.all([api('complaints'), api('pengajuan')])
+    .then(([cRes, pRes]) => {
+      if (!cRes || !pRes || cRes.error || pRes.error) return;
+
+      const current = [];
+      (cRes.complaints || []).forEach(c => {
+        current.push({
+          key: complaintKey(c), type: 'komplain', title: 'Komplain baru',
+          detail: [c.KATEGORI, c.IDENTITAS_DONATUR].filter(Boolean).join(' · ') || '-'
+        });
+      });
+      (pRes.pengajuan || []).forEach(p => {
+        const total = (p.items || []).reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
+        current.push({
+          key: pengajuanKey(p), type: 'pengajuan', title: 'Pengajuan baru',
+          detail: (p.pemohon || '-') + ' · ' + total.toLocaleString('id-ID') + ' pcs'
+        });
+      });
+
+      const seenList = lsGet(NOTIF_SEEN_KEY, null);
+      const seen = new Set(seenList || []);
+
+      // Pertama kali dibuka di browser ini, atau setelah input sendiri (silent):
+      // tandai semua data yang ada sebagai sudah dilihat, tanpa bunyi.
+      if (seenList === null || opts.silent) {
+        current.forEach(i => seen.add(i.key));
+        lsSet(NOTIF_SEEN_KEY, Array.from(seen));
+        return;
+      }
+
+      const fresh = current.filter(i => !seen.has(i.key));
+      if (!fresh.length) return;
+
+      fresh.forEach(i => seen.add(i.key));
+      lsSet(NOTIF_SEEN_KEY, Array.from(seen));
+
+      const items = lsGet(NOTIF_ITEMS_KEY, []);
+      const nowIso = new Date().toISOString();
+      fresh.forEach(i => items.unshift({ type: i.type, title: i.title, detail: i.detail, time: nowIso, read: false }));
+      lsSet(NOTIF_ITEMS_KEY, items.slice(0, 30));
+
+      renderNotifications();
+      playRing();   // sekali per pengecekan, walau ada beberapa item baru sekaligus
+      shakeBell();
+    })
+    .catch(() => { /* jaringan/Apps Script error: coba lagi di putaran berikutnya */ })
+    .finally(() => {
+      notifChecking = false;
+      if (notifPendingSilent) {
+        notifPendingSilent = false;
+        checkNotifications({ silent: true });
+      }
+    });
+}
+
+/* --- Tampilan lonceng, badge, dan daftar --- */
+function renderNotifications() {
+  const items = lsGet(NOTIF_ITEMS_KEY, []);
+  const unread = items.filter(i => !i.read).length;
+
+  const badge = document.getElementById('notif-badge');
+  badge.style.display = unread ? 'flex' : 'none';
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  document.title = unread ? '(' + unread + ') ' + BASE_TITLE : BASE_TITLE;
+
+  const listEl = document.getElementById('notif-list');
+  if (!items.length) {
+    listEl.innerHTML = '<div class="notif-empty">Belum ada notifikasi.</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map((i, idx) => `
+    <div class="notif-item${i.read ? '' : ' unread'}" data-idx="${idx}">
+      <div class="notif-icon">${i.type === 'komplain' ? '✉' : '📤'}</div>
+      <div>
+        <div class="notif-title">${escapeHtml(i.title)}</div>
+        <div class="notif-detail">${escapeHtml(i.detail)}</div>
+        <div class="notif-time">${new Date(i.time).toLocaleString('id-ID')}</div>
+      </div>
+    </div>`).join('');
+
+  listEl.querySelectorAll('.notif-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const all = lsGet(NOTIF_ITEMS_KEY, []);
+      const it = all[Number(el.dataset.idx)];
+      if (!it) return;
+      it.read = true;
+      lsSet(NOTIF_ITEMS_KEY, all);
+      renderNotifications();
+      document.getElementById('notif-panel').style.display = 'none';
+      goToView(it.type === 'komplain' ? 'komplain' : 'pengajuan');
+    });
+  });
+}
+
+function renderSoundToggle() {
+  const on = lsGet(NOTIF_SOUND_KEY, true);
+  document.getElementById('notif-sound-toggle').textContent = on ? '🔊 Suara: On' : '🔇 Suara: Off';
+}
+
+const notifPanel = document.getElementById('notif-panel');
+
+document.getElementById('notif-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  notifPanel.style.display = notifPanel.style.display === 'none' ? 'block' : 'none';
+});
+notifPanel.addEventListener('click', (e) => e.stopPropagation());
+document.addEventListener('click', () => { notifPanel.style.display = 'none'; });
+
+document.getElementById('notif-mark-all').addEventListener('click', () => {
+  const items = lsGet(NOTIF_ITEMS_KEY, []);
+  items.forEach(i => { i.read = true; });
+  lsSet(NOTIF_ITEMS_KEY, items);
+  renderNotifications();
+});
+
+document.getElementById('notif-sound-toggle').addEventListener('click', () => {
+  const nowOn = !lsGet(NOTIF_SOUND_KEY, true);
+  lsSet(NOTIF_SOUND_KEY, nowOn);
+  renderSoundToggle();
+  if (nowOn) playRing(); // sekalian sebagai tes suara
+});
+
+renderNotifications();
+renderSoundToggle();
+checkNotifications();
+setInterval(checkNotifications, NOTIF_POLL_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifications(); });
 </script>
 
 </body>
