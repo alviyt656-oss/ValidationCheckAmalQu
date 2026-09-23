@@ -1512,7 +1512,7 @@ document.getElementById('pengajuan-submit').addEventListener('click', () => {
       resultEl.innerHTML = `<div class="result-box ok">Pengajuan berhasil disimpan (${items.length} barang).</div>`;
       resetPengajuanForm();
       loadPengajuanList();
-      checkNotifications({ silent: true });
+      markNotifSeen('P|' + res.idPengajuan);
       // Total Stock di Rekapitulasi ikut berubah, refresh datanya juga
       loadRecap().catch(() => {});
     })
@@ -1749,7 +1749,7 @@ document.getElementById('komplain-submit').addEventListener('click', () => {
       document.getElementById('komplain-search-results').innerHTML = '';
       selectedOrder = null;
       loadKomplainList();
-      checkNotifications({ silent: true });
+      markNotifSeen('K|' + res.rowNumber);
     })
     .catch(err => { resultEl.innerHTML = `<div class="result-box err">Gagal: ${err.message}</div>`; })
     .finally(() => { btn.disabled = false; });
@@ -1904,6 +1904,7 @@ const BASE_TITLE = document.title;
 let audioCtx = null;
 let notifChecking = false;
 let notifPendingSilent = false;
+let pendingRing = false; // bunyi tertunda: menunggu browser "membuka kunci" audio
 
 function lsGet(key, fallback) {
   try {
@@ -1927,11 +1928,21 @@ function getAudioCtx() {
 }
 
 // Browser memblokir suara otomatis sampai pengguna berinteraksi dengan halaman.
-// Klik/ketik apa saja sekali sudah cukup untuk "membuka kunci" suaranya.
+// Klik/ketik apa saja sekali sudah cukup untuk "membuka kunci" suaranya — dan
+// kalau ada bunyi yang sempat tertunda (pendingRing) karena belum ada interaksi
+// sama sekali, langsung dimainkan begitu kunci terbuka.
 ['click', 'keydown', 'touchstart'].forEach(evt => {
   document.addEventListener(evt, () => {
     const ctx = getAudioCtx();
-    if (ctx && ctx.state === 'suspended') ctx.resume();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        if (pendingRing) { pendingRing = false; playRingNow(); }
+      }).catch(() => {});
+    } else if (pendingRing) {
+      pendingRing = false;
+      playRingNow();
+    }
   }, { capture: true, passive: true });
 });
 
@@ -1939,7 +1950,24 @@ function playRing() {
   if (!lsGet(NOTIF_SOUND_KEY, true)) return;
   const ctx = getAudioCtx();
   if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume();
+
+  if (ctx.state === 'suspended') {
+    // Belum ada interaksi sama sekali di halaman ini — kalau tetap
+    // dijadwalkan sekarang, bisa gagal diam-diam. Tunda dulu, mainkan
+    // begitu user klik/ketik apa saja pertama kali.
+    pendingRing = true;
+    ctx.resume().then(() => {
+      if (pendingRing) { pendingRing = false; playRingNow(); }
+    }).catch(() => {});
+    return;
+  }
+
+  playRingNow();
+}
+
+function playRingNow() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
 
   const now = ctx.currentTime;
   // "ring-ring": dua dentingan bel, masing-masing dua nada (dasar + harmonik)
@@ -1970,10 +1998,23 @@ function shakeBell() {
 
 /* --- Identitas item (supaya tiap komplain/pengajuan hanya berbunyi sekali) --- */
 function complaintKey(c) {
-  return 'K|' + [c.ID_PESANAN_REF, c.IDENTITAS_DONATUR, c.KATEGORI, c.TANGGAL_PELAPORAN].join('|');
+  // Berdasarkan nomor baris di sheet, bukan gabungan field teks -> stabil,
+  // dan PERSIS SAMA dengan rowNumber yang dikembalikan addComplaint(),
+  // sehingga tidak ada celah waktu antara input sendiri dan pengecekan berikutnya.
+  return 'K|' + c.rowNumber;
 }
 function pengajuanKey(p) {
   return 'P|' + p.idPengajuan;
+}
+
+// Tandai satu item sebagai "sudah dilihat" secara langsung, tanpa menunggu
+// refetch. Dipakai tepat setelah user sendiri menyimpan komplain/pengajuan,
+// supaya submission sendiri TIDAK PERNAH ikut berbunyi, walau data di sheet
+// belum tentu langsung kebaca ulang oleh pengecekan berikutnya.
+function markNotifSeen(key) {
+  const seen = new Set(lsGet(NOTIF_SEEN_KEY, []) || []);
+  seen.add(key);
+  lsSet(NOTIF_SEEN_KEY, Array.from(seen));
 }
 
 /* --- Cek data baru --- */
