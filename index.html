@@ -557,6 +557,36 @@
 
       <div class="panel">
         <h3>Daftar Pengajuan</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="pengajuan-filter-from">Dari tanggal</label>
+            <input type="date" id="pengajuan-filter-from">
+          </div>
+          <div class="field">
+            <label for="pengajuan-filter-to">Sampai tanggal</label>
+            <input type="date" id="pengajuan-filter-to">
+          </div>
+          <div class="field">
+            <label for="pengajuan-filter-kategori">Kategori Barang</label>
+            <select id="pengajuan-filter-kategori"></select>
+          </div>
+          <div class="field">
+            <label for="pengajuan-sort">Urutkan</label>
+            <select id="pengajuan-sort">
+              <option value="desc">Terbaru dulu</option>
+              <option value="asc">Terlama dulu</option>
+            </select>
+          </div>
+          <div class="field" style="margin-left:auto;">
+            <label for="pengajuan-export-format">Format</label>
+            <select id="pengajuan-export-format">
+              <option value="csv">CSV</option>
+              <option value="xlsx">Excel (.xlsx)</option>
+              <option value="pdf">PDF</option>
+            </select>
+          </div>
+          <button id="pengajuan-export-btn">⬇ Export</button>
+        </div>
         <div class="table-scroll">
           <table id="pengajuan-table">
             <thead>
@@ -1431,6 +1461,13 @@ document.getElementById('upload-run').addEventListener('click', () => {
 let pengajuanItemCounter = 0;
 let lastPengajuanList = [];
 
+(function populatePengajuanCategoryFilter() {
+  const sel = document.getElementById('pengajuan-filter-kategori');
+  if (!sel) return;
+  sel.innerHTML = '<option value="__all__">Semua kategori</option>' +
+    PENGAJUAN_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+})();
+
 function addPengajuanItemRow(prefill) {
   pengajuanItemCounter++;
   const id = pengajuanItemCounter;
@@ -1521,36 +1558,136 @@ document.getElementById('pengajuan-submit').addEventListener('click', () => {
 });
 
 function loadPengajuanList() {
-  const tbody = document.querySelector('#pengajuan-table tbody');
   const emptyEl = document.getElementById('pengajuan-empty');
   emptyEl.textContent = 'Memuat...';
   emptyEl.style.display = 'block';
 
-  api('pengajuan').then(data => {
+  return api('pengajuan').then(data => {
     if (data.error) throw new Error(data.message);
     lastPengajuanList = data.pengajuan || [];
-    tbody.innerHTML = lastPengajuanList.map(p => {
-      const items = p.items || [];
-      const totalQty = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
-      const pillsHtml = `<div class="pill-list">${items.map(it =>
-        `<span class="item-pill">${it.kategori}: ${Number(it.qty).toLocaleString('id-ID')}</span>`
-      ).join('')}</div>`;
-      return `
-        <tr>
-          <td>${p.tanggal || ''}</td>
-          <td>${p.pemohon || ''}</td>
-          <td>${p.alamat || ''}</td>
-          <td>${pillsHtml}</td>
-          <td>${totalQty.toLocaleString('id-ID')}</td>
-          <td>${p.keterangan || ''}</td>
-        </tr>`;
-    }).join('');
-    emptyEl.style.display = lastPengajuanList.length ? 'none' : 'block';
-    emptyEl.textContent = lastPengajuanList.length ? '' : 'Belum ada data pengajuan.';
+    renderPengajuanTable();
   }).catch(err => {
     emptyEl.textContent = 'Gagal memuat: ' + err.message;
   });
 }
+
+// Ambil pengajuan sesuai filter tanggal & kategori barang yang aktif.
+// Kalau kategori difilter, item barang lain di dalam satu pengajuan
+// disembunyikan (bukan seluruh barisnya), supaya Total Qty dan daftar
+// barang yang tampil tetap sesuai kategori yang dipilih.
+function getFilteredPengajuan() {
+  const fromVal = document.getElementById('pengajuan-filter-from').value;
+  const toVal = document.getElementById('pengajuan-filter-to').value;
+  const kategoriFilter = document.getElementById('pengajuan-filter-kategori').value;
+  const sortOrder = document.getElementById('pengajuan-sort').value;
+
+  return lastPengajuanList
+    .filter(p => {
+      if (fromVal && p.tanggal && p.tanggal < fromVal) return false;
+      if (toVal && p.tanggal && p.tanggal > toVal) return false;
+      return true;
+    })
+    .map(p => {
+      const items = (p.items || []).filter(it => kategoriFilter === '__all__' || it.kategori === kategoriFilter);
+      return { ...p, items };
+    })
+    .filter(p => kategoriFilter === '__all__' || p.items.length > 0)
+    .sort((a, b) => {
+      const da = a.tanggal ? new Date(a.tanggal).getTime() : 0;
+      const db = b.tanggal ? new Date(b.tanggal).getTime() : 0;
+      return sortOrder === 'asc' ? da - db : db - da;
+    });
+}
+
+function renderPengajuanTable() {
+  const tbody = document.querySelector('#pengajuan-table tbody');
+  const emptyEl = document.getElementById('pengajuan-empty');
+  const filtered = getFilteredPengajuan();
+
+  tbody.innerHTML = filtered.map(p => {
+    const items = p.items || [];
+    const totalQty = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
+    const pillsHtml = `<div class="pill-list">${items.map(it =>
+      `<span class="item-pill">${escapeHtml(it.kategori)}: ${Number(it.qty).toLocaleString('id-ID')}</span>`
+    ).join('')}</div>`;
+    return `
+      <tr>
+        <td>${escapeHtml(p.tanggal)}</td>
+        <td>${escapeHtml(p.pemohon)}</td>
+        <td>${escapeHtml(p.alamat)}</td>
+        <td>${pillsHtml}</td>
+        <td>${totalQty.toLocaleString('id-ID')}</td>
+        <td>${escapeHtml(p.keterangan)}</td>
+      </tr>`;
+  }).join('');
+
+  emptyEl.style.display = filtered.length ? 'none' : 'block';
+  emptyEl.textContent = filtered.length
+    ? ''
+    : (lastPengajuanList.length ? 'Tidak ada data untuk filter ini.' : 'Belum ada data pengajuan.');
+}
+
+['pengajuan-filter-from', 'pengajuan-filter-to', 'pengajuan-filter-kategori', 'pengajuan-sort'].forEach(id => {
+  document.getElementById(id).addEventListener('change', renderPengajuanTable);
+});
+
+/* ---------- Export Pengajuan (CSV / XLSX / PDF) ---------- */
+function buildPengajuanExportRows() {
+  const header = ['Tanggal', 'Yang Mengajukan', 'Alamat Penyaluran', 'Kategori Barang', 'Qty', 'Keterangan'];
+  const filtered = getFilteredPengajuan();
+  const body = [];
+  filtered.forEach(p => {
+    (p.items || []).forEach(it => {
+      body.push([p.tanggal || '', p.pemohon || '', p.alamat || '', it.kategori || '', Number(it.qty) || 0, p.keterangan || '']);
+    });
+  });
+  return { header, body };
+}
+
+function pengajuanExportFilename(ext) {
+  const from = document.getElementById('pengajuan-filter-from').value || 'semua';
+  const to = document.getElementById('pengajuan-filter-to').value || 'semua';
+  return `pengajuan-wakaf-${from}_${to}.${ext}`;
+}
+
+function exportPengajuanCSV() {
+  const { header, body } = buildPengajuanExportRows();
+  const lines = [header.join(','), ...body.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))];
+  downloadBlob(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' }), pengajuanExportFilename('csv'));
+}
+
+function exportPengajuanXLSX() {
+  const { header, body } = buildPengajuanExportRows();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pengajuan');
+  XLSX.writeFile(wb, pengajuanExportFilename('xlsx'));
+}
+
+function exportPengajuanPDF() {
+  const { header, body } = buildPengajuanExportRows();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFontSize(14);
+  doc.text('Daftar Pengajuan Pengeluaran Barang', 14, 16);
+  doc.setFontSize(10);
+  const from = document.getElementById('pengajuan-filter-from').value || '-';
+  const to = document.getElementById('pengajuan-filter-to').value || '-';
+  doc.text(`Rentang: ${from} s.d. ${to}`, 14, 22);
+  doc.autoTable({ head: [header], body: body, startY: 28, styles: { fontSize: 8 } });
+  doc.save(pengajuanExportFilename('pdf'));
+}
+
+document.getElementById('pengajuan-export-btn').addEventListener('click', () => {
+  const format = document.getElementById('pengajuan-export-format').value;
+  if (format === 'csv') exportPengajuanCSV();
+  else if (format === 'xlsx') exportPengajuanXLSX();
+  else if (format === 'pdf') exportPengajuanPDF();
+
+  const from = document.getElementById('pengajuan-filter-from').value;
+  const to = document.getElementById('pengajuan-filter-to').value;
+  logHistoryEvent('export', `Pengajuan ${format.toUpperCase()} (${from || 'semua'} s.d. ${to || 'semua'})`);
+});
 
 /* ---------- Riwayat (Laporan) ---------- */
 const HISTORY_KEY = 'wakaf_dashboard_history';
