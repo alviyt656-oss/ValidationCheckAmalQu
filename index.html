@@ -698,6 +698,39 @@
 
       <div class="panel">
         <h3>Daftar Komplain</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="komplain-filter-from">Dari tanggal</label>
+            <input type="date" id="komplain-filter-from">
+          </div>
+          <div class="field">
+            <label for="komplain-filter-to">Sampai tanggal</label>
+            <input type="date" id="komplain-filter-to">
+          </div>
+          <div class="field">
+            <label for="komplain-filter-kategori">Kategori</label>
+            <select id="komplain-filter-kategori"></select>
+          </div>
+          <div class="field">
+            <label for="komplain-filter-status">Status</label>
+            <select id="komplain-filter-status">
+              <option value="__all__">Semua status</option>
+              <option value="Pending">Pending</option>
+              <option value="Selesai">Selesai</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="komplain-filter-search">Cari (donatur/kronologi/ID Pesanan)</label>
+            <input type="text" id="komplain-filter-search" placeholder="Ketik untuk mencari...">
+          </div>
+          <div class="field">
+            <label for="komplain-sort">Urutkan</label>
+            <select id="komplain-sort">
+              <option value="desc">Terbaru dulu</option>
+              <option value="asc">Terlama dulu</option>
+            </select>
+          </div>
+        </div>
         <div class="table-scroll">
           <table id="komplain-table">
             <thead>
@@ -753,6 +786,7 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1A78o8s9BhtqCx9L8c1P3lfuNLuwyMikqlbKO1MljPTRbv4oflSxBqu55JIj-YLSZ/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
+const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
 
 let monthlyTabs = [];
 let chartInstance = null;
@@ -1980,47 +2014,118 @@ document.getElementById('handling-submit').addEventListener('click', () => {
     .finally(() => { btn.disabled = false; });
 });
 
-function loadKomplainList() {
+/* ---------- Filter Komplain ---------- */
+(function populateKomplainCategoryFilter() {
+  const sel = document.getElementById('komplain-filter-kategori');
+  if (!sel) return;
+  sel.innerHTML = '<option value="__all__">Semua kategori</option>' +
+    KOMPLAIN_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+})();
+
+// Ubah nilai tanggal (Date object atau string apapun) jadi string
+// yyyy-MM-dd supaya bisa dibandingkan dengan input <input type="date">.
+function komplainDateStr(val) {
+  if (!val) return '';
+  if (val instanceof Date) return toISODate(val);
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? String(val) : toISODate(d);
+}
+
+function getFilteredKomplain() {
+  const fromVal = document.getElementById('komplain-filter-from').value;
+  const toVal = document.getElementById('komplain-filter-to').value;
+  const kategoriFilter = document.getElementById('komplain-filter-kategori').value;
+  const statusFilter = document.getElementById('komplain-filter-status').value;
+  const searchQ = document.getElementById('komplain-filter-search').value.trim().toLowerCase();
+  const sortOrder = document.getElementById('komplain-sort').value;
+
+  return lastKomplainList
+    .filter(c => {
+      const tglStr = komplainDateStr(c.TANGGAL_PELAPORAN);
+      if (fromVal && tglStr && tglStr < fromVal) return false;
+      if (toVal && tglStr && tglStr > toVal) return false;
+
+      if (kategoriFilter !== '__all__' && c.KATEGORI !== kategoriFilter) return false;
+
+      if (statusFilter !== '__all__') {
+        const isDone = /selesai/i.test(String(c.STATUS || ''));
+        if (statusFilter === 'Selesai' && !isDone) return false;
+        if (statusFilter === 'Pending' && isDone) return false;
+      }
+
+      if (searchQ) {
+        const haystack = [c.IDENTITAS_DONATUR, c.KRONOLOGI, c.ID_PESANAN_REF]
+          .map(v => String(v || '').toLowerCase()).join(' ');
+        if (!haystack.includes(searchQ)) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const da = a.TANGGAL_PELAPORAN ? new Date(a.TANGGAL_PELAPORAN).getTime() : 0;
+      const db = b.TANGGAL_PELAPORAN ? new Date(b.TANGGAL_PELAPORAN).getTime() : 0;
+      return sortOrder === 'asc' ? da - db : db - da;
+    });
+}
+
+function renderKomplainTable() {
   const tbody = document.querySelector('#komplain-table tbody');
+  const emptyEl = document.getElementById('komplain-empty');
+  const filtered = getFilteredKomplain();
+
+  tbody.innerHTML = filtered.map(c => {
+    const attachmentCell = c.LAMPIRAN
+      ? `<button type="button" class="download-btn" data-row="${c.rowNumber}"
+           title="${escapeHtml(c.LAMPIRAN_NAMA || 'Lampiran')}">⬇ Unduh</button>`
+      : `<span class="no-attachment">Belum ada</span>`;
+
+    return `
+    <tr>
+      <td>${escapeHtml(c.TANGGAL_PELAPORAN)}</td>
+      <td class="wrap-cell">${escapeHtml(c.IDENTITAS_DONATUR)}</td>
+      <td>${escapeHtml(c.KATEGORI)}</td>
+      <td class="wrap-cell">${escapeHtml(c.KRONOLOGI)}</td>
+      <td class="wrap-cell">${escapeHtml(c.HASIL_VERIFIKASI)}</td>
+      <td class="wrap-cell">${escapeHtml(c.TINDAK_LANJUT)}</td>
+      <td class="wrap-cell">${escapeHtml(c.KETERANGAN)}</td>
+      <td>${statusPill(c.STATUS)}</td>
+      <td>${escapeHtml(c.PIC)}</td>
+      <td>${attachmentCell}</td>
+      <td><button data-row="${c.rowNumber}" class="handling-btn">Tindak Lanjuti</button></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.handling-btn').forEach(btn => {
+    btn.addEventListener('click', () => openHandlingPanel(Number(btn.dataset.row)));
+  });
+  tbody.querySelectorAll('.download-btn').forEach(btn => {
+    btn.addEventListener('click', () => downloadKomplainAttachment(Number(btn.dataset.row), btn));
+  });
+
+  emptyEl.style.display = filtered.length ? 'none' : 'block';
+  emptyEl.textContent = filtered.length
+    ? ''
+    : (lastKomplainList.length ? 'Tidak ada data untuk filter ini.' : 'Belum ada data komplain.');
+}
+
+['komplain-filter-from', 'komplain-filter-to', 'komplain-filter-kategori', 'komplain-filter-status', 'komplain-sort'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', renderKomplainTable);
+});
+(function () {
+  const el = document.getElementById('komplain-filter-search');
+  if (el) el.addEventListener('input', renderKomplainTable);
+})();
+
+function loadKomplainList() {
   const emptyEl = document.getElementById('komplain-empty');
   emptyEl.textContent = 'Memuat...';
   emptyEl.style.display = 'block';
 
-  api('complaints').then(data => {
+  return api('complaints').then(data => {
     if (data.error) throw new Error(data.message);
     lastKomplainList = data.complaints || [];
-
-    tbody.innerHTML = lastKomplainList.map(c => {
-      const attachmentCell = c.LAMPIRAN
-        ? `<button type="button" class="download-btn" data-row="${c.rowNumber}"
-             title="${escapeHtml(c.LAMPIRAN_NAMA || 'Lampiran')}">⬇ Unduh</button>`
-        : `<span class="no-attachment">Belum ada</span>`;
-
-      return `
-      <tr>
-        <td>${escapeHtml(c.TANGGAL_PELAPORAN)}</td>
-        <td class="wrap-cell">${escapeHtml(c.IDENTITAS_DONATUR)}</td>
-        <td>${escapeHtml(c.KATEGORI)}</td>
-        <td class="wrap-cell">${escapeHtml(c.KRONOLOGI)}</td>
-        <td class="wrap-cell">${escapeHtml(c.HASIL_VERIFIKASI)}</td>
-        <td class="wrap-cell">${escapeHtml(c.TINDAK_LANJUT)}</td>
-        <td class="wrap-cell">${escapeHtml(c.KETERANGAN)}</td>
-        <td>${statusPill(c.STATUS)}</td>
-        <td>${escapeHtml(c.PIC)}</td>
-        <td>${attachmentCell}</td>
-        <td><button data-row="${c.rowNumber}" class="handling-btn">Tindak Lanjuti</button></td>
-      </tr>`;
-    }).join('');
-
-    tbody.querySelectorAll('.handling-btn').forEach(btn => {
-      btn.addEventListener('click', () => openHandlingPanel(Number(btn.dataset.row)));
-    });
-    tbody.querySelectorAll('.download-btn').forEach(btn => {
-      btn.addEventListener('click', () => downloadKomplainAttachment(Number(btn.dataset.row), btn));
-    });
-
-    emptyEl.style.display = lastKomplainList.length ? 'none' : 'block';
-    emptyEl.textContent = lastKomplainList.length ? '' : 'Belum ada data komplain.';
+    renderKomplainTable();
   }).catch(err => {
     emptyEl.textContent = 'Gagal memuat: ' + err.message;
   });
