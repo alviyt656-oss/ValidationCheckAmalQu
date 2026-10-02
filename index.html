@@ -409,12 +409,18 @@
 
       <div class="panel">
         <h3>Ketersediaan stok (Total Stock)</h3>
-        <p class="muted" style="margin-top:-8px;">Total Stock = Paket dengan status terkirim + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
+        <p class="muted" style="margin-top:-8px;">Total Stock = Paket dengan status terkirim − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
         <div id="stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Stock Siap Distribusi</h3>
+        <p class="muted" style="margin-top:-8px;">Stok yang siap didistribusikan, dicatat manual lewat form di bawah. Terpisah dari Ketersediaan stok di atas (yang dihitung dari data pengiriman).</p>
+        <div id="ready-stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
 
         <!-- Tambah Stock manual -->
         <div class="stock-add-box">
-          <h3>Tambah Stock Manual</h3>
+          <h3>Tambah Stock Siap Distribusi</h3>
           <div class="field-row">
             <div class="field">
               <label for="stock-add-tanggal">Tanggal</label>
@@ -829,7 +835,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbEblBG7NDWO2DkD9uFS6wExHSsmm6_JwiFJgkTljKbeub1bqI92ZFT0d2uR6RgB-L/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNzGghTRQA63a8TwJxn-KIIkrbjeUvSnr8Gka_MSN-_vHfB6v4WuuM6-Mr0hrhqIjy/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -968,6 +974,7 @@ function renderRecap(data) {
   renderCompareChart();
   renderDashboardSummary();
   renderStockCards();
+  renderReadyStockCards();
 }
 
 /* ---------- Ketersediaan stok (Total Stock) ---------- */
@@ -984,7 +991,7 @@ function renderStockCards() {
   }
 
   cardsEl.innerHTML = categories.map((cat, i) => {
-    const s = Object.assign({ terkirim: 0, tambahan: 0, keluar: 0, stock: 0 }, summary[cat]);
+    const s = Object.assign({ terkirim: 0, keluar: 0, stock: 0 }, summary[cat]);
     const isGold = i === 1;
     const warn = s.stock < 0;
     return `
@@ -992,12 +999,29 @@ function renderStockCards() {
         <div class="card-top"><div class="card-icon">${cat.toLowerCase().includes('tahsin') ? '📖' : '📦'}</div></div>
         <div class="label">Total Stock — ${cat}</div>
         <div class="value">${s.stock.toLocaleString('id-ID')}</div>
-        <div class="stat-row" style="flex-wrap:wrap;">
+        <div class="stat-row">
           <span>Terkirim: <b>${s.terkirim.toLocaleString('id-ID')}</b></span>
-          <span>Tambah Manual: <b>${s.tambahan.toLocaleString('id-ID')}</b></span>
           <span>Keluar (Pengajuan): <b>${s.keluar.toLocaleString('id-ID')}</b></span>
         </div>
         ${warn ? '<div class="balance-line warn">⚠ Stok minus — cek data pengajuan/pengiriman</div>' : ''}
+      </div>`;
+  }).join('');
+}
+
+/* ---------- Stock Siap Distribusi (dari Tambah Stock manual) ---------- */
+function renderReadyStockCards() {
+  const cardsEl = document.getElementById('ready-stock-cards');
+  if (!cardsEl) return;
+
+  const ready = (lastRecapData && lastRecapData.readyStock) || {};
+
+  cardsEl.innerHTML = PENGAJUAN_CATEGORIES.map((cat, i) => {
+    const qty = Number(ready[cat]) || 0;
+    return `
+      <div class="card${i === 1 ? ' gold' : ''}">
+        <div class="card-top"><div class="card-icon">${categoryIcon(cat)}</div></div>
+        <div class="label">Stock Siap Distribusi — ${cat}</div>
+        <div class="value">${qty.toLocaleString('id-ID')}</div>
       </div>`;
   }).join('');
 }
@@ -1820,7 +1844,7 @@ document.getElementById('stock-add-submit').addEventListener('click', () => {
   apiPost({ action: 'addStock', data })
     .then(res => {
       if (res.error) throw new Error(res.message);
-      resultEl.innerHTML = `<div class="result-box ok">Stock ${escapeHtml(data.kategori)} bertambah ${data.qty.toLocaleString('id-ID')}.</div>`;
+      resultEl.innerHTML = `<div class="result-box ok">Stock siap distribusi ${escapeHtml(data.kategori)} bertambah ${data.qty.toLocaleString('id-ID')}.</div>`;
       document.getElementById('stock-add-qty').value = '';
       document.getElementById('stock-add-keterangan').value = '';
       logHistoryEvent('stock', `${data.kategori}: +${data.qty}`);
