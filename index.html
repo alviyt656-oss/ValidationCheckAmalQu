@@ -120,6 +120,7 @@
   .status-pill.delivered{ background:var(--green-soft); color:var(--green-dark); }
   .status-pill.pending{ background:var(--gold-soft); color:var(--gold-dark); }
   .status-pill.cancelled{ background:var(--danger-soft); color:var(--danger); }
+  .status-pill.done{ background:#DDEBF3; color:var(--teal); }
 
   .field-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; align-items:end; }
   .field{ display:flex; flex-direction:column; gap:6px; }
@@ -409,16 +410,10 @@
 
       <div class="panel">
         <h3>Ketersediaan stok (Total Stock)</h3>
-        <p class="muted" style="margin-top:-8px;">Total Stock = Paket dengan status terkirim − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
+        <p class="muted" style="margin-top:-8px;">Total Stock = Terkirim (termasuk selesai) + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
         <div id="stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
-      </div>
 
-      <div class="panel">
-        <h3>Stock Siap Distribusi</h3>
-        <p class="muted" style="margin-top:-8px;">Stok yang siap didistribusikan, dicatat manual lewat form di bawah. Terpisah dari Ketersediaan stok di atas (yang dihitung dari data pengiriman).</p>
-        <div id="ready-stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
-
-        <!-- Tambah Stock manual -->
+        <!-- Tambah Stock manual (langsung menambah Total Stock di atas) -->
         <div class="stock-add-box">
           <h3>Tambah Stock Siap Distribusi</h3>
           <div class="field-row">
@@ -835,7 +830,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNzGghTRQA63a8TwJxn-KIIkrbjeUvSnr8Gka_MSN-_vHfB6v4WuuM6-Mr0hrhqIjy/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz2Cgv7s7RmMWzmkswYcrO31uT7irs81SjGCHiNBiXcCM7HbCvM8Qn-TutBaIPx4srX/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -974,7 +969,6 @@ function renderRecap(data) {
   renderCompareChart();
   renderDashboardSummary();
   renderStockCards();
-  renderReadyStockCards();
 }
 
 /* ---------- Ketersediaan stok (Total Stock) ---------- */
@@ -991,7 +985,7 @@ function renderStockCards() {
   }
 
   cardsEl.innerHTML = categories.map((cat, i) => {
-    const s = Object.assign({ terkirim: 0, keluar: 0, stock: 0 }, summary[cat]);
+    const s = Object.assign({ terkirim: 0, tambahan: 0, keluar: 0, stock: 0 }, summary[cat]);
     const isGold = i === 1;
     const warn = s.stock < 0;
     return `
@@ -999,29 +993,12 @@ function renderStockCards() {
         <div class="card-top"><div class="card-icon">${cat.toLowerCase().includes('tahsin') ? '📖' : '📦'}</div></div>
         <div class="label">Total Stock — ${cat}</div>
         <div class="value">${s.stock.toLocaleString('id-ID')}</div>
-        <div class="stat-row">
+        <div class="stat-row" style="flex-wrap:wrap;">
           <span>Terkirim: <b>${s.terkirim.toLocaleString('id-ID')}</b></span>
-          <span>Keluar (Pengajuan): <b>${s.keluar.toLocaleString('id-ID')}</b></span>
+          <span>Tambah stock: <b>+${s.tambahan.toLocaleString('id-ID')}</b></span>
+          <span>Keluar (Pengajuan): <b>−${s.keluar.toLocaleString('id-ID')}</b></span>
         </div>
         ${warn ? '<div class="balance-line warn">⚠ Stok minus — cek data pengajuan/pengiriman</div>' : ''}
-      </div>`;
-  }).join('');
-}
-
-/* ---------- Stock Siap Distribusi (dari Tambah Stock manual) ---------- */
-function renderReadyStockCards() {
-  const cardsEl = document.getElementById('ready-stock-cards');
-  if (!cardsEl) return;
-
-  const ready = (lastRecapData && lastRecapData.readyStock) || {};
-
-  cardsEl.innerHTML = PENGAJUAN_CATEGORIES.map((cat, i) => {
-    const qty = Number(ready[cat]) || 0;
-    return `
-      <div class="card${i === 1 ? ' gold' : ''}">
-        <div class="card-top"><div class="card-icon">${categoryIcon(cat)}</div></div>
-        <div class="label">Stock Siap Distribusi — ${cat}</div>
-        <div class="value">${qty.toLocaleString('id-ID')}</div>
       </div>`;
   }).join('');
 }
@@ -1445,11 +1422,15 @@ function populateTabSelects() {
   });
 }
 
+/* Warna pill status:
+   cancelled = merah, done ("Selesai") = biru kehijauan,
+   delivered ("Paket Sudah sampai") = hijau, selain itu = oranye (pending/expedisi) */
 function statusPill(status) {
   const s = String(status || '');
-  const isDelivered = /sampai|terkirim|delivered/i.test(s);
   const isCancelled = /cancel|batal/i.test(s);
-  const cls = isCancelled ? 'cancelled' : (isDelivered ? 'delivered' : 'pending');
+  const isDone = /selesai/i.test(s);
+  const isDelivered = /sampai|terkirim|delivered/i.test(s);
+  const cls = isCancelled ? 'cancelled' : (isDone ? 'done' : (isDelivered ? 'delivered' : 'pending'));
   const label = status || 'Belum diproses';
   return `<span class="status-pill ${cls}">${label}</span>`;
 }
