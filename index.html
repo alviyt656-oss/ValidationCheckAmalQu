@@ -365,6 +365,7 @@
       </div>
       <div class="sync-controls">
         <span id="last-sync">Belum sync</span>
+        <span id="backend-version" class="muted"></span>
         <select id="export-format" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:13px;">
           <option value="csv">CSV</option>
           <option value="xlsx">Excel (.xlsx)</option>
@@ -831,7 +832,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzB7uqU6ghLUVioBDmJQ6vIg-2dO3QvWoZ5qqb9JfnTnkV5apqUQowmA73DnWM0Jgul/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz62naX9N_lkfma468EeFLdpq5pGF90h5ha30m17rOVnxpY_EvZwqqvAWIOvmxIUA/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -1561,7 +1562,15 @@ document.getElementById('upload-run').addEventListener('click', () => {
         .map(k => `${displayStatus(k)}: ${byStatus[k]}`)
         .join(' · ');
 
+      const tabsInfo = res.idsPerTab
+        ? Object.keys(res.idsPerTab).map(t => `${escapeHtml(t)} (${Number(res.idsPerTab[t]).toLocaleString('id-ID')} ID)`).join(', ')
+        : null;
+      const oldBackendWarn = res.idsPerTab === undefined
+        ? `<div class="muted" style="margin-bottom:8px; color:var(--danger);">⚠ Backend yang dipanggil masih versi lama (belum mencari di semua tanggal &amp; tab). Pastikan SCRIPT_URL menunjuk deployment yang sudah diperbarui.</div>`
+        : '';
+
       resultEl.innerHTML = `<div class="result-box ok">
+        ${oldBackendWarn}
         <strong>${res.matched || 0}</strong> pesanan berhasil diperbarui statusnya.<br>
         <span class="muted">${byStatusText || 'Tidak ada status yang cocok.'}</span><br>
         <span class="muted">Total dibaca dari file: ${res.totalUploaded || 0}
@@ -1571,6 +1580,7 @@ document.getElementById('upload-run').addEventListener('click', () => {
         ${unknownStatus.length ? ' · Status tidak dikenali: ' + unknownStatus.length : ''}</span>
         ${notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${notFound.join(', ')}</div>` : ''}
         ${notFound.length && res.sheetSampleIds && res.sheetSampleIds.length ? `<div class="muted" style="margin-top:8px;">Contoh ID di sheet (untuk dibandingkan): ${res.sheetSampleIds.join(', ')}</div>` : ''}
+        ${tabsInfo !== null ? `<div class="muted" style="margin-top:8px;">Tab yang dipindai: ${tabsInfo || '(tidak ada tab yang terbaca)'}</div>` : ''}
         ${sciCount ? `<div class="muted" style="margin-top:8px; color:var(--danger);">⚠ ${sciCount} ID di file berformat ilmiah (mis. 5.85824E+17), digitnya sudah rusak. Ubah kolom ID Pesanan di file menjadi format Teks lalu isi ulang.</div>` : ''}
         ${unknownStatus.length ? `<div class="muted" style="margin-top:8px;">Status tidak dikenali: ${unknownStatus.map(u => u.idPesanan + ' ("' + u.status + '")').join(', ')}</div>` : ''}
       </div>`;
@@ -1938,7 +1948,31 @@ function refreshAll() {
 
 document.getElementById('refresh-btn').addEventListener('click', refreshAll);
 
+/* ---------- Cek versi backend ---------- */
+// Kalau versi yang tampil tidak sama dengan EXPECTED_BACKEND_VERSION, berarti
+// SCRIPT_URL di atas masih menunjuk deployment lama (belum diperbarui).
+const EXPECTED_BACKEND_VERSION = 'v10-diagnostik-tab';
+
+function checkBackendVersion() {
+  const el = document.getElementById('backend-version');
+  return api('ping').then(d => {
+    const v = d && d.version;
+    if (v === EXPECTED_BACKEND_VERSION) {
+      el.style.color = '';
+      el.textContent = '· Backend ' + v + ' ✓';
+    } else {
+      el.style.color = 'var(--danger)';
+      el.textContent = '· ⚠ Backend versi lama (' + (v || 'tanpa versi') + ') — deploy belum masuk';
+    }
+  }).catch(() => {
+    el.style.color = 'var(--danger)';
+    el.textContent = '· ⚠ Backend tidak bisa dihubungi';
+  });
+}
+
 /* ---------- Init ---------- */
+checkBackendVersion();
+
 populateTabSelects()
   .then(refreshAll)
   .catch(showTopError);
