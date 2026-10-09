@@ -542,7 +542,7 @@
         <div class="steps">
           <div class="step"><span class="num">1</span> Pilih tanggal dan tab kategori (Quran / Tahsin)</div>
           <div class="step"><span class="num">2</span> Upload file validasi (xls/xlsx/csv, kolom: ID Pesanan, Status)</div>
-          <div class="step"><span class="num">3</span> Sistem mencocokkan ID Pesanan dan memperbarui status otomatis</div>
+          <div class="step"><span class="num">3</span> Sistem mencocokkan ID Pesanan di semua tanggal &amp; tab bulanan (pesanan "Selesai" biasanya bertanggal lebih lama) dan memperbarui status otomatis</div>
         </div>
         <div class="field-row">
           <div class="field">
@@ -831,7 +831,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhelCxf9FUZL4SfJBFqYQCsiolxcRBzpEkxcssQ2exW9E0tlTKy4ksZLSzDmVHEWob/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzB7uqU6ghLUVioBDmJQ6vIg-2dO3QvWoZ5qqb9JfnTnkV5apqUQowmA73DnWM0Jgul/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -1504,15 +1504,29 @@ function parseUploadedFile(file) {
   return file.arrayBuffer().then(buf => {
     const wb = XLSX.read(buf, { type: 'array' });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    // raw:false -> ambil teks yang tampil di sel (menghindari ID Pesanan
-    // yang sangat panjang kehilangan presisi kalau dibaca sebagai number)
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
-    return rows.map(row => {
-      const keys = Object.keys(row);
-      const idKey = keys.find(k => /id.*pesanan/i.test(k)) || keys[0];
-      const statusKey = keys.find(k => /status/i.test(k)) || keys[1];
-      return { idPesanan: String(row[idKey] || '').trim(), status: String(row[statusKey] || '').trim() };
-    }).filter(r => r.idPesanan);
+    // header:1 -> baca sebagai baris mentah (tidak menganggap baris pertama
+    // pasti judul). raw:false -> ambil teks yang tampil di sel supaya ID
+    // Pesanan 18 digit tidak kehilangan presisi.
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    if (!rows.length) return [];
+
+    const first = rows[0].map(c => String(c === undefined || c === null ? '' : c).trim());
+    // Kalau sel pertama berupa deretan angka panjang, berarti TIDAK ada baris judul.
+    const noHeader = /^\d{8,}$/.test(first[0]);
+
+    let idCol = 0, statusCol = 1, startRow = 0;
+    if (!noHeader) {
+      startRow = 1;
+      const iIdx = first.findIndex(k => /id.*pesanan|order.*id/i.test(k));
+      const sIdx = first.findIndex(k => /status/i.test(k));
+      idCol = iIdx >= 0 ? iIdx : 0;
+      statusCol = sIdx >= 0 ? sIdx : (idCol === 0 ? 1 : 0);
+    }
+
+    return rows.slice(startRow).map(r => ({
+      idPesanan: String(r[idCol] === undefined || r[idCol] === null ? '' : r[idCol]).trim(),
+      status: String(r[statusCol] === undefined || r[statusCol] === null ? '' : r[statusCol]).trim()
+    })).filter(r => r.idPesanan);
   });
 }
 
@@ -1531,8 +1545,13 @@ document.getElementById('upload-run').addEventListener('click', () => {
   btn.disabled = true;
   resultEl.innerHTML = `<div class="muted">Memproses…</div>`;
 
+  let sciCount = 0;   // ID yang terbaca berformat ilmiah, mis. 5.85824E+17
+
   parseUploadedFile(fileInput.files[0])
-    .then(records => apiPost({ action: 'validate', tab, date, records }))
+    .then(records => {
+      sciCount = records.filter(r => /^\d+(\.\d+)?e\+?\d+$/i.test(r.idPesanan)).length;
+      return apiPost({ action: 'validate', tab, date, records });
+    })
     .then(res => {
       if (res.error) throw new Error(res.message);
       const notFound = Array.isArray(res.notFound) ? res.notFound : [];
@@ -1546,9 +1565,13 @@ document.getElementById('upload-run').addEventListener('click', () => {
         <strong>${res.matched || 0}</strong> pesanan berhasil diperbarui statusnya.<br>
         <span class="muted">${byStatusText || 'Tidak ada status yang cocok.'}</span><br>
         <span class="muted">Total dibaca dari file: ${res.totalUploaded || 0}
+        ${res.matchedElsewhere ? ' · Dicocokkan di tanggal/tab lain: ' + res.matchedElsewhere : ''}
+        ${res.matchedLoose ? ' · Dicocokkan via 15 digit awal: ' + res.matchedLoose : ''}
         ${notFound.length ? ' · Tidak ditemukan: ' + notFound.length : ''}
         ${unknownStatus.length ? ' · Status tidak dikenali: ' + unknownStatus.length : ''}</span>
         ${notFound.length ? `<div class="muted" style="margin-top:8px;">ID tidak ditemukan: ${notFound.join(', ')}</div>` : ''}
+        ${notFound.length && res.sheetSampleIds && res.sheetSampleIds.length ? `<div class="muted" style="margin-top:8px;">Contoh ID di sheet (untuk dibandingkan): ${res.sheetSampleIds.join(', ')}</div>` : ''}
+        ${sciCount ? `<div class="muted" style="margin-top:8px; color:var(--danger);">⚠ ${sciCount} ID di file berformat ilmiah (mis. 5.85824E+17), digitnya sudah rusak. Ubah kolom ID Pesanan di file menjadi format Teks lalu isi ulang.</div>` : ''}
         ${unknownStatus.length ? `<div class="muted" style="margin-top:8px;">Status tidak dikenali: ${unknownStatus.map(u => u.idPesanan + ' ("' + u.status + '")').join(', ')}</div>` : ''}
       </div>`;
     })
