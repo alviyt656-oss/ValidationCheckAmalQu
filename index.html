@@ -1951,7 +1951,8 @@ document.getElementById('refresh-btn').addEventListener('click', refreshAll);
 /* ---------- Cek versi backend ---------- */
 // Kalau versi yang tampil tidak sama dengan EXPECTED_BACKEND_VERSION, berarti
 // SCRIPT_URL di atas masih menunjuk deployment lama (belum diperbarui).
-const EXPECTED_BACKEND_VERSION = 'v10-diagnostik-tab';
+// Nilai ini HARUS sama dengan SCRIPT_VERSION di Code.gs.
+const EXPECTED_BACKEND_VERSION = 'v11-batch-tulis-status';
 
 function checkBackendVersion() {
   const el = document.getElementById('backend-version');
@@ -2048,14 +2049,14 @@ document.getElementById('komplain-search-btn').addEventListener('click', () => {
     }
     resultsEl.innerHTML = results.map((r, i) => `
       <div style="padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer;" data-idx="${i}" class="order-pick">
-        <b>${r.idPesanan}</b> — ${r.namaSertifikat || ''} · ${r.tanggal || ''} · tab ${r.tab}
+        <b>${escapeHtml(r.idPesanan)}</b> — ${escapeHtml(r.namaSertifikat || '')} · ${escapeHtml(r.tanggal || '')} · tab ${escapeHtml(r.tab)}
       </div>`).join('');
     resultsEl.querySelectorAll('.order-pick').forEach(el => {
       el.addEventListener('click', () => {
         selectedOrder = results[Number(el.dataset.idx)];
         resultsEl.innerHTML = `<span style="color:var(--green);">
-          ✓ Ter-link: <b>${selectedOrder.idPesanan}</b> — ${selectedOrder.namaSertifikat || '(nama tidak ada di data)'}
-          ${selectedOrder.alamat ? ' · ' + selectedOrder.alamat : ''}
+          ✓ Ter-link: <b>${escapeHtml(selectedOrder.idPesanan)}</b> — ${escapeHtml(selectedOrder.namaSertifikat || '(nama tidak ada di data)')}
+          ${selectedOrder.alamat ? ' · ' + escapeHtml(selectedOrder.alamat) : ''}
         </span>`;
       });
     });
@@ -2261,7 +2262,7 @@ function renderKomplainTable() {
 
     return `
     <tr>
-      <td>${escapeHtml(c.TANGGAL_PELAPORAN)}</td>
+      <td>${escapeHtml(komplainDateStr(c.TANGGAL_PELAPORAN))}</td>
       <td class="wrap-cell">${escapeHtml(c.IDENTITAS_DONATUR)}</td>
       <td>${escapeHtml(c.KATEGORI)}</td>
       <td class="wrap-cell">${escapeHtml(c.KRONOLOGI)}</td>
