@@ -831,7 +831,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMkjonr0uBlD9TppeF88xfP3kSGLuhW1_lRaS4LDUCQUEGQljjwzRVKCGHqzw31mkE/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhelCxf9FUZL4SfJBFqYQCsiolxcRBzpEkxcssQ2exW9E0tlTKy4ksZLSzDmVHEWob/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -1443,8 +1443,13 @@ function statusPill(status) {
   const isDone = /selesai/i.test(s);
   const isDelivered = /sampai|terkirim|delivered/i.test(s);
   const cls = isCancelled ? 'cancelled' : (isDone ? 'done' : (isDelivered ? 'delivered' : 'pending'));
-  const label = status || 'Belum diproses';
+  const label = status ? displayStatus(status) : 'Belum diproses';
   return `<span class="status-pill ${cls}">${label}</span>`;
+}
+
+// Di sheet statusnya "Paket Sudah sampai", di dashboard ditampilkan "Terkirim".
+function displayStatus(name) {
+  return /^\s*paket sudah sampai\s*$/i.test(String(name || '')) ? 'Terkirim' : name;
 }
 
 let lastDailyRecords = [];
@@ -1534,7 +1539,7 @@ document.getElementById('upload-run').addEventListener('click', () => {
       const unknownStatus = Array.isArray(res.unknownStatus) ? res.unknownStatus : [];
       const byStatus = res.byStatus || {};
       const byStatusText = Object.keys(byStatus)
-        .map(k => `${k}: ${byStatus[k]}`)
+        .map(k => `${displayStatus(k)}: ${byStatus[k]}`)
         .join(' · ');
 
       resultEl.innerHTML = `<div class="result-box ok">
