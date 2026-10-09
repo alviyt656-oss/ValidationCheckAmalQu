@@ -410,7 +410,7 @@
 
       <div class="panel">
         <h3>Ketersediaan stok (Total Stock)</h3>
-        <p class="muted" style="margin-top:-8px;">Total Stock = Terkirim (termasuk selesai) + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
+        <p class="muted" style="margin-top:-8px;">Total Stock = Terkirim + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
         <div id="stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
 
         <!-- Tambah Stock manual (langsung menambah Total Stock di atas) -->
@@ -467,6 +467,7 @@
             <label for="chart-metric">Tampilkan</label>
             <select id="chart-metric">
               <option value="Distribusi">Terkirim</option>
+              <option value="Selesai">Selesai</option>
               <option value="Cancel">Cancel</option>
               <option value="Expedisi">Tidak Diketahui</option>
               <option value="Total PCS">Total PCS</option>
@@ -830,7 +831,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz2Cgv7s7RmMWzmkswYcrO31uT7irs81SjGCHiNBiXcCM7HbCvM8Qn-TutBaIPx4srX/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMkjonr0uBlD9TppeF88xfP3kSGLuhW1_lRaS4LDUCQUEGQljjwzRVKCGHqzw31mkE/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -985,7 +986,7 @@ function renderStockCards() {
   }
 
   cardsEl.innerHTML = categories.map((cat, i) => {
-    const s = Object.assign({ terkirim: 0, tambahan: 0, keluar: 0, stock: 0 }, summary[cat]);
+    const s = Object.assign({ terkirim: 0, selesai: 0, tambahan: 0, keluar: 0, stock: 0 }, summary[cat]);
     const isGold = i === 1;
     const warn = s.stock < 0;
     return `
@@ -1007,10 +1008,11 @@ function renderDashboardSummary() {
   const cardsEl = document.getElementById('dashboard-cards');
   if (!cardsEl || !lastFlatRows.length) return;
 
-  let totalPcs = 0, distribusi = 0, cancel = 0, expedisi = 0;
+  let totalPcs = 0, distribusi = 0, selesai = 0, cancel = 0, expedisi = 0;
   lastFlatRows.forEach(row => {
     totalPcs += Number(row.values['Total PCS']) || 0;
     distribusi += Number(row.values['Distribusi']) || 0;
+    selesai += Number(row.values['Selesai']) || 0;
     cancel += Number(row.values['Cancel']) || 0;
     expedisi += Number(row.values['Expedisi']) || 0;
   });
@@ -1024,6 +1026,12 @@ function renderDashboardSummary() {
       <div class="label">Total terkirim (semua bulan)</div>
       <div class="value">${distribusi.toLocaleString('id-ID')}</div>
       <div class="muted">Dari ${totalPcs.toLocaleString('id-ID')} PCS · ${months.length} bulan tercatat</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><div class="card-icon">✓</div></div>
+      <div class="label">Total selesai (semua bulan)</div>
+      <div class="value">${selesai.toLocaleString('id-ID')}</div>
+      <div class="muted">Paket yang sudah selesai ditangani</div>
     </div>
     <div class="card gold">
       <div class="card-top"><div class="card-icon">📖</div></div>
@@ -1075,13 +1083,14 @@ function renderRecapCards() {
     if (!groups[key]) {
       groups[key] = {
         monthLabel: row.monthLabel, category: row.category,
-        totalPcs: 0, distribusi: 0, cancel: 0, expedisi: 0
+        totalPcs: 0, distribusi: 0, selesai: 0, cancel: 0, expedisi: 0
       };
       order.push(key);
     }
     const g = groups[key];
     g.totalPcs += Number(row.values['Total PCS']) || 0;
     g.distribusi += Number(row.values['Distribusi']) || 0;
+    g.selesai += Number(row.values['Selesai']) || 0;
     g.cancel += Number(row.values['Cancel']) || 0;
     g.expedisi += Number(row.values['Expedisi']) || 0;
   });
@@ -1093,7 +1102,7 @@ function renderRecapCards() {
 
   order.forEach(key => {
     const g = groups[key];
-    const selisih = g.totalPcs - g.distribusi - g.cancel - g.expedisi;
+    const selisih = g.totalPcs - g.distribusi - g.selesai - g.cancel - g.expedisi;
     const balanced = selisih === 0;
     const isGold = allCategories.indexOf(g.category) === 1;
     const change = getMonthOverMonthChange(g.monthLabel, g.category);
@@ -1114,7 +1123,8 @@ function renderRecapCards() {
         <div class="value">${g.distribusi.toLocaleString('id-ID')}</div>
       </div>
       <div class="muted">Terkirim dari ${g.totalPcs.toLocaleString('id-ID')} PCS</div>
-      <div class="stat-row">
+      <div class="stat-row" style="flex-wrap:wrap;">
+        <span>Selesai: <b>${g.selesai.toLocaleString('id-ID')}</b></span>
         <span>Cancel: <b>${g.cancel.toLocaleString('id-ID')}</b></span>
         <span>Tidak diketahui: <b>${g.expedisi.toLocaleString('id-ID')}</b></span>
       </div>
@@ -1298,13 +1308,14 @@ function renderCompareChart() {
 
 /* ---------- Export (CSV / XLSX / PDF) ---------- */
 function buildExportRows() {
-  const header = ['Tanggal', 'Kategori', 'Total PCS', 'Terkirim', 'Cancel', 'Tidak Diketahui'];
+  const header = ['Tanggal', 'Kategori', 'Total PCS', 'Terkirim', 'Selesai', 'Cancel', 'Tidak Diketahui'];
   const filtered = getFilteredRows().sort((a, b) => a.date - b.date);
   const body = filtered.map(row => [
     toISODate(row.date),
     row.category,
     Number(row.values['Total PCS']) || 0,
     Number(row.values['Distribusi']) || 0,
+    Number(row.values['Selesai']) || 0,
     Number(row.values['Cancel']) || 0,
     Number(row.values['Expedisi']) || 0
   ]);
@@ -1368,9 +1379,10 @@ let pieChartInstance = null;
 function renderStatusPie() {
   const filtered = getFilteredRows();
 
-  let terkirim = 0, cancel = 0, tidakDiketahui = 0;
+  let terkirim = 0, selesai = 0, cancel = 0, tidakDiketahui = 0;
   filtered.forEach(row => {
     terkirim += Number(row.values['Distribusi']) || 0;
+    selesai += Number(row.values['Selesai']) || 0;
     cancel += Number(row.values['Cancel']) || 0;
     tidakDiketahui += Number(row.values['Expedisi']) || 0;
   });
@@ -1380,10 +1392,10 @@ function renderStatusPie() {
   pieChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Terkirim', 'Cancel', 'Tidak Diketahui'],
+      labels: ['Terkirim', 'Selesai', 'Cancel', 'Tidak Diketahui'],
       datasets: [{
-        data: [terkirim, cancel, tidakDiketahui],
-        backgroundColor: ['#0E9488', '#E1493D', '#F2994A']
+        data: [terkirim, selesai, cancel, tidakDiketahui],
+        backgroundColor: ['#0E9488', '#2D7D9A', '#E1493D', '#F2994A']
       }]
     },
     options: {
@@ -1393,7 +1405,7 @@ function renderStatusPie() {
         tooltip: {
           callbacks: {
             label: function(item) {
-              const total = terkirim + cancel + tidakDiketahui;
+              const total = terkirim + selesai + cancel + tidakDiketahui;
               const pct = total ? ((item.raw / total) * 100).toFixed(1) : 0;
               return `${item.label}: ${item.raw.toLocaleString('id-ID')} (${pct}%)`;
             }
