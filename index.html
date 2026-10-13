@@ -365,7 +365,6 @@
       </div>
       <div class="sync-controls">
         <span id="last-sync">Belum sync</span>
-        <span id="backend-version" class="muted"></span>
         <select id="export-format" style="padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:13px;">
           <option value="csv">CSV</option>
           <option value="xlsx">Excel (.xlsx)</option>
@@ -1948,32 +1947,7 @@ function refreshAll() {
 
 document.getElementById('refresh-btn').addEventListener('click', refreshAll);
 
-/* ---------- Cek versi backend ---------- */
-// Kalau versi yang tampil tidak sama dengan EXPECTED_BACKEND_VERSION, berarti
-// SCRIPT_URL di atas masih menunjuk deployment lama (belum diperbarui).
-// Nilai ini HARUS sama dengan SCRIPT_VERSION di Code.gs.
-const EXPECTED_BACKEND_VERSION = 'v11-batch-tulis-status';
-
-function checkBackendVersion() {
-  const el = document.getElementById('backend-version');
-  return api('ping').then(d => {
-    const v = d && d.version;
-    if (v === EXPECTED_BACKEND_VERSION) {
-      el.style.color = '';
-      el.textContent = '· Backend ' + v + ' ✓';
-    } else {
-      el.style.color = 'var(--danger)';
-      el.textContent = '· ⚠ Backend versi lama (' + (v || 'tanpa versi') + ') — deploy belum masuk';
-    }
-  }).catch(() => {
-    el.style.color = 'var(--danger)';
-    el.textContent = '· ⚠ Backend tidak bisa dihubungi';
-  });
-}
-
 /* ---------- Init ---------- */
-checkBackendVersion();
-
 populateTabSelects()
   .then(refreshAll)
   .catch(showTopError);
