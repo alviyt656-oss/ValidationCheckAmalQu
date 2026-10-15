@@ -410,7 +410,7 @@
 
       <div class="panel">
         <h3>Ketersediaan stok (Total Stock)</h3>
-        <p class="muted" style="margin-top:-8px;">Total Stock = Terkirim + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
+        <p class="muted" style="margin-top:-8px;">Total Stock = Terkirim + Selesai + Tambah Stock manual − Permintaan Pengeluaran (dari menu Pengajuan). Dihitung kumulatif dari seluruh data, tidak mengikuti filter tanggal di atas.</p>
         <div id="stock-cards" class="cards" style="margin-top:16px; margin-bottom:0;"></div>
 
         <!-- Tambah Stock manual (langsung menambah Total Stock di atas) -->
@@ -831,7 +831,7 @@
 /* ============================================================
    KONFIGURASI — URL deployment Apps Script
    ============================================================ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzoJYQcK8FXrRKptTsZQo2iP3AA3o-kmlXHzg2H8_6gSxwvtoo1MgFjodor-MjRsgDI/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzevPZ0BXVnlY-BdBydpKPdBz7ReYd-epYSV2UZLoqIC8nGYixNb6mr58Om7MURmdAK/exec';
 
 const PENGAJUAN_CATEGORIES = ['Al Wakaf', 'Buku Super Tahsin'];
 const KOMPLAIN_CATEGORIES = ['Minta Laporan', 'Paket Belum Sampai', 'Sertifikat/Doa Belum Diterima', 'Kesalahan Data', 'Lainnya'];
@@ -996,6 +996,7 @@ function renderStockCards() {
         <div class="value">${s.stock.toLocaleString('id-ID')}</div>
         <div class="stat-row" style="flex-wrap:wrap;">
           <span>Terkirim: <b>${s.terkirim.toLocaleString('id-ID')}</b></span>
+          <span>Selesai: <b>+${s.selesai.toLocaleString('id-ID')}</b></span>
           <span>Tambah stock: <b>+${s.tambahan.toLocaleString('id-ID')}</b></span>
           <span>Keluar (Pengajuan): <b>−${s.keluar.toLocaleString('id-ID')}</b></span>
         </div>
